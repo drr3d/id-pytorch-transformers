@@ -210,9 +210,9 @@ def main(input, model_name_or_path=None, length=50, padding_text="",
     # Set model in evaluation mode to desactivate DropOut modules by default
     model.eval()
     print(model)
-
-    for i in range(0, 3):
-        #print("context_tokens :{}".format(context_tokens))
+    
+    raw_ct = context_tokens
+    for i in range(0, 5):
         out = sample_sequence(
             model=model,
             context=context_tokens,
@@ -224,9 +224,14 @@ def main(input, model_name_or_path=None, length=50, padding_text="",
             target_model='gpt2'
         )
         out = out[0, len(context_tokens):].tolist()
-        text = tokenizer.decode(out, clean_up_tokenization_spaces=True, use_spm=use_spm)
-        print(text)
+        context_tokens+=out
+
+    text = tokenizer.decode(context_tokens, clean_up_tokenization_spaces=True, use_spm=use_spm)
+    print(text)
     
     
-main(input='saya mau sukses dengan', model_name_or_path='./samples/wiki_datasets/trained_model/gpt2/epoch_35-gpt2_id_combinedAE_id.ckpt',
-     temperature=5.0, top_k=40, top_p=0.9, target_model='gpt2', spm_vocab_size=50000, length=50, spm_model_name='spm_combinedAE_unigram_id')
+main(input='Indonesia',
+     temperature=15.0, top_k=40, top_p=0.9, target_model='gpt2', spm_vocab_size=50000, length=15,
+     spm_model_name='spm_combinedAE_unigram_id',
+     model_name_or_path='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/gpt2/epoch_45-gpt2_id_combinedAE_id.ckpt',
+     vocab_model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model')
