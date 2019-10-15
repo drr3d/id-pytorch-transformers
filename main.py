@@ -139,6 +139,7 @@ class TextDataset(Dataset):
             print("convert token to id...")
             if use_spm:
                 tokenized_text = []
+                print("Tokenize using spm")
                 with open(file_path, encoding="utf-8") as f:
                     for line in tqdm(f, total=get_num_lines(file_path)):
                         tokenized_text+=tokenizer.convert_tokens_to_ids(line, is_spm=use_spm)
@@ -163,6 +164,8 @@ class TextDataset(Dataset):
                 tokenized_text = tokenized_text[block_size:]
                 i+=1
                 if i in tmp_run_on:
+                    with open("tokenize_trainingprogress.txt", 'a') as fw:
+                        fw.write("loop progress num {} - remaining data: {} - {}\n".format(i, len(tokenized_text), block_size))
                     print("loop progress num {} - remaining data: {} - {}".format(i, len(tokenized_text), block_size))
             # Note that we are loosing the last truncated example here for the sake of simplicity (no padding)
             # If your dataset is small, first you should loook for a bigger one :-) and second you
@@ -182,14 +185,15 @@ def load_and_cache_examples(train_data_file, block_size, tokenizer, evaluate=Fal
     dataset = TextDataset(tokenizer, file_path=train_data_file, block_size=block_size, use_spm=use_spm)
     return dataset
 
-def restore_model(model, resume_iters, model_name, model_save_dir):
+def restore_model(model, resume_iters, model_name, model_save_dir, is_finetune=False):
     """Restore the trained generator and discriminator."""
 
     model_path = os.path.join(model_save_dir, '{}.ckpt'.format(model_name))
     print('Loading the trained models from step {} - of file: {}'.format(resume_iters, model_path))
 
     model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
-    #model.zero_grad() # <-- no need, unless fine-tune
+    if is_finetune:
+        model.zero_grad()
     return model
 
 def doTraining(model, dataset, tokenizer, optimizer, scheduler, tr_loss, 
@@ -347,13 +351,13 @@ if __name__ == '__main__':
     
     ## Training new data
     ## Step-1
-    
+    """
     main(corpus_dir='./samples/wiki_datasets/id/', corpus_name='wiki_00_mod.txt', train_model_name='gpt2_id_wiki00mod',
          model_dir='./samples/wiki_datasets/trained_model/', spm_vocab_size=2000, vocab_name='vocab_wiki00mod_id',
          trained_model_savedir="gpt2/", spm_max_sentence_length=25000, spm_model_name='spm_wiki00mod_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=True, create_tokenizer=True, block_size=256,
          spm_model_type='unigram')
-    """
+    
     ## Step-2 (optional, only if there is an error, and you unwilling to train the vocab again)
     main(corpus_dir='./samples/wiki_datasets/id/', corpus_name='wiki_00_mod.txt', train_model_name='gpt2_id_wiki00mod',
          model_dir='./samples/wiki_datasets/trained_model/', spm_vocab_size=2000, vocab_name='vocab_wiki00mod_id',
@@ -371,11 +375,11 @@ if __name__ == '__main__':
          spm_model_type='unigram', model_name='epoch_1-gpt2_id_combinedAE_id')
     """
 
-    """ 
+    """ """
     ## Only process tokenizer
     ##  set save_tokenized=True, create_tokenizer=True for retraining the tokenizer
-    main(corpus_dir='./samples/wiki_datasets/id/', corpus_name='combined_all.txt', train_model_name='gpt2_id_combinedAll',
-         model_dir='./samples/wiki_datasets/trained_model/', spm_vocab_size=150000, vocab_name='vocab_combinedAll_id',
+    main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='combined_all.txt', train_model_name='gpt2_id_combinedAll',
+         model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=50000, vocab_name='vocab_combinedAll_id',
          trained_model_savedir="gpt2/", spm_max_sentence_length=80000, spm_model_name='spm_combinedAll_unigram_id',
-         dotraining=False,  resume=False, train_spm=True, save_tokenized=True, create_tokenizer=True, block_size=512)
-    """
+         dotraining=False,  resume=False, train_spm=True, save_tokenized=True, create_tokenizer=True, block_size=768)
+    

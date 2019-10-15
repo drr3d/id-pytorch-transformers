@@ -5,9 +5,9 @@
 </p>
 
 # id-pytorch-transformers
-Pretrained Indonesian language dengan **[pytorch-transformers](https://github.com/huggingface/transformers)**.
+Pretrained pemodelan bahasa Indonesia dengan **[pytorch-transformers](https://github.com/huggingface/transformers)**.
 
-Repository ini berisikan modifikasi dengan harapan mempermudah untuk mempelajari konstruksi tiap-tiap network nya.
+Repository ini berisikan modifikasi dengan harapan mempermudah untuk mempelajari konstruksi tiap-tiap network nya, yang kemudian melakukan proses training dari awal(terutama untuk bahasa Indonesia).
 
 ## Networks
 Networks yang tersedia diantaranya:

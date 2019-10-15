@@ -456,14 +456,6 @@ class XLNetModel(nn.Module):
             list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
 
-    Examples::
-
-        tokenizer = XLNetTokenizer.from_pretrained('xlnet-large-cased')
-        model = XLNetModel.from_pretrained('xlnet-large-cased')
-        input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
-        outputs = model(input_ids)
-        last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
-
     """
     def __init__(self, config):
         super(XLNetModel, self).__init__()
@@ -763,19 +755,6 @@ class XLNetLMHeadModel(nn.Module):
             list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
 
-    Examples::
-
-        tokenizer = XLNetTokenizer.from_pretrained('xlnet-large-cased')
-        model = XLNetLMHeadModel.from_pretrained('xlnet-large-cased')
-        # We show how to setup inputs to predict a next token using a bi-directional context.
-        input_ids = torch.tensor(tokenizer.encode("Hello, my dog is very <mask>")).unsqueeze(0)  # We will predict the masked token
-        perm_mask = torch.zeros((1, input_ids.shape[1], input_ids.shape[1]), dtype=torch.float)
-        perm_mask[:, :, -1] = 1.0  # Previous tokens don't see last token
-        target_mapping = torch.zeros((1, 1, input_ids.shape[1]), dtype=torch.float)  # Shape [1, 1, seq_length] => let's predict one token
-        target_mapping[0, 0, -1] = 1.0  # Our first (and only) prediction will be the last token of the sequence (the masked token)
-        outputs = model(input_ids, perm_mask=perm_mask, target_mapping=target_mapping)
-        next_token_logits = outputs[0]  # Output has shape [target_mapping.size(0), target_mapping.size(1), config.vocab_size]
-
     """
     def __init__(self, config):
         super(XLNetLMHeadModel, self).__init__()
@@ -828,76 +807,3 @@ class XLNetLMHeadModel(nn.Module):
             outputs = (loss,) + outputs
 
         return outputs  # return (loss), logits, mems, (hidden states), (attentions)
-
-"""
-###################################################################################
-# set torch device
-device = torch.device('cuda')
-if torch.cuda.is_available():
-        device = torch.device('cuda')
-else: 
-        device = torch.device("cpu")
-
-n_gpu = torch.cuda.device_count()
-
-set_seed(seed=42, n_gpu=n_gpu)
-
-num_epoch = 100
-train_loss_set = []
-tr_loss, logging_loss = 0.0, 0.0
-num_samples=1
-
-max_grad_norm = 1.0
-gradient_accumulation_steps = 50
-warmup_steps = 0
-
-logging_steps = 50
-max_steps = -1
-
-mlm_probability = 0.15
-local_rank = -1
-train_batch_size = 1
-block_size = 128
-
-# loading tokenizer
-#tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
-tokenizer = XLNetTokenizerId(vocab_file='xlnet-idwiki-base-cased')
-
-# prepare dataset
-_dataset = './tests_samples/wiki_datasets/id/wiki_00_mod.txt'
-#data_list=['<unk>','<sep>', '<cls>']
-#with open(_dataset, encoding="utf-8") as fp:
-#    line = fp.readline()
-#    while line:
-#       line = fp.readline()
-#       data_list.append(line)
-#tokenizer.createVocab(data_list)
-tokenizer.from_pretrained('./tests_samples/wiki_datasets/trained_model/')
-print("tokenizer.vocab_size: {}".format(tokenizer.vocab_size))
-
-# saving tokenized object for consistent use
-tokenizer.save_pretrained('./tests_samples/wiki_datasets/trained_model/')
-
-train_dataset = load_and_cache_examples(_dataset, block_size, tokenizer, evaluate=False)
-dataset = train_dataset
-print("Loading train_dataset done...")
-
-if max_steps > 0:
-        t_total = max_steps
-else:
-        t_total = len(dataset) // gradient_accumulation_steps * num_epoch
-print("t_total: {}".format(t_total))
-
-## Prepare model and training
-config = XLNetConfig(vocab_size_or_config_json_file=tokenizer.vocab_size)
-model = XLNetLMHeadModel(config)
-model.to(device)
-print(model)
-
-optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=t_total)
-
-doTraining(model, train_dataset, tokenizer, optimizer, scheduler, tr_loss, logging_loss, 
-            gradient_accumulation_steps, mlm_probability, device, local_rank, train_batch_size,
-            save_dir='./tests_samples/wiki_datasets/trained_model/xlnet/')
-"""

@@ -544,8 +544,7 @@ class GPT2LMHeadModel(nn.Module):
             # Shift so that tokens < n predict n
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
-            #print(shift_logits, shift_logits.shape)
-            #print(shift_labels, shift_labels.shape)
+
             # Flatten the tokens
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
