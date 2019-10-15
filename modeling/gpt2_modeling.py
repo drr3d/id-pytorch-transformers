@@ -13,6 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""
+    this file contain modifications of the original code, in hope new developers,
+    can have better understanding how gpt2 Language Modeling is constructed from scratch.
+"""
+
 """PyTorch OpenAI GPT-2 model."""
 
 import sys
