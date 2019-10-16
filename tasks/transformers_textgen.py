@@ -107,9 +107,9 @@ def sample_sequence(model, length, context, num_samples=1, temperature=1, top_k=
     return generated
 
 
-def main(input, model_name_or_path=None, length=50, padding_text="", 
+def txtGen(input, model_name_or_path=None, length=50, padding_text="", 
          temperature=1.0, top_k=0, top_p=0.9, seed=42, target_model='xlnet',
-         use_spm=True, spm_vocab_size=2000, spm_model_name='spm_id',
+         use_spm=True, spm_vocab_size=2000, spm_model_name='spm_id', n_embd=128,
          vocab_model_dir='./samples/wiki_datasets/trained_model/'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
@@ -146,7 +146,7 @@ def main(input, model_name_or_path=None, length=50, padding_text="",
         model = XLNetLMHeadModel(config)
     elif target_model=='gpt2':
         # GPT-2
-        config = GPT2Config(vocab_size_or_config_json_file=tokenizer.vocab_size, n_embd=384) # <-- make sure to use same vocab, if not would error and need to adjust vocab_size manually
+        config = GPT2Config(vocab_size_or_config_json_file=tokenizer.vocab_size, n_embd=n_embd) # <-- make sure to use same vocab, if not would error and need to adjust vocab_size manually
         model = GPT2LMHeadModel(config)
 
     print("loading previous trained model...")
@@ -228,10 +228,3 @@ def main(input, model_name_or_path=None, length=50, padding_text="",
 
     text = tokenizer.decode(context_tokens, clean_up_tokenization_spaces=True, use_spm=use_spm)
     print(text)
-    
-    
-main(input='Indonesia',
-     temperature=15.0, top_k=40, top_p=0.9, target_model='gpt2', spm_vocab_size=50000, length=15,
-     spm_model_name='spm_combinedAE_unigram_id',
-     model_name_or_path='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/gpt2/epoch_45-gpt2_id_combinedAE_id.ckpt',
-     vocab_model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model')

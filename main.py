@@ -266,10 +266,10 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
     set_seed(seed=1332, n_gpu=n_gpu)
 
-    num_epoch = 100
+    num_epoch = 1000
     max_grad_norm = 1.0
     gradient_accumulation_steps = 50
-    warmup_steps = 0
+    warmup_steps = 200
 
     tr_loss, logging_loss = 0.0, 0.0
 
@@ -338,7 +338,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         print(model)
         print("The number of model_parameters: {}".format(num_params))
 
-        optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+        optimizer = AdamW(model.parameters(), lr=0.00025, weight_decay=0.01)
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=t_total)
 
         doTraining(model, train_dataset, tokenizer, optimizer, scheduler, tr_loss, logging_loss, 
@@ -375,11 +375,11 @@ if __name__ == '__main__':
          spm_model_type='unigram', model_name='epoch_1-gpt2_id_combinedAE_id')
     """
 
-    """ """
+    """ 
     ## Only process tokenizer
     ##  set save_tokenized=True, create_tokenizer=True for retraining the tokenizer
     main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='combined_all.txt', train_model_name='gpt2_id_combinedAll',
          model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=50000, vocab_name='vocab_combinedAll_id',
          trained_model_savedir="gpt2/", spm_max_sentence_length=80000, spm_model_name='spm_combinedAll_unigram_id',
          dotraining=False,  resume=False, train_spm=True, save_tokenized=True, create_tokenizer=True, block_size=768)
-    
+    """
