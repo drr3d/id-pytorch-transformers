@@ -35,8 +35,6 @@ from torch.utils.data import DataLoader, RandomSampler, Dataset
 from torch.nn import functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
 
-from tokenization_id import TokenizerId
-
 logger = logging.getLogger(__name__)
 
 try:
@@ -101,7 +99,7 @@ class XLNetConfig(nn.Module):
     def __init__(self,
                  vocab_size_or_config_json_file=1000,#
                  d_model=512,
-                 n_layer=42,
+                 n_layer=12,
                  n_head=8,
                  d_inner=2048,
                  max_position_embeddings=512,
@@ -762,7 +760,7 @@ class XLNetLMHeadModel(nn.Module):
         self.same_length = config.same_length
 
         self.transformer = XLNetModel(config)
-        self.lm_loss = nn.Linear(config.d_model, config.n_token, bias=False)
+        self.lm_loss = nn.Linear(config.d_model, config.n_token, bias=True)
 
         self.tie_weights()
 
