@@ -95,9 +95,9 @@ class XLNetConfig(nn.Module):
 """
     def __init__(self,
                  vocab_size_or_config_json_file=1000,#
-                 d_model=768,
+                 d_model=512,
                  n_layer=12,
-                 n_head=12,
+                 n_head=8,
                  d_inner=2048,
                  max_position_embeddings=512,
                  ff_activation="gelu",

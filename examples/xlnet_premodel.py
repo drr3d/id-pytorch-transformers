@@ -3,6 +3,7 @@ sys.path.append("..")
 
 import os
 import time
+import math
 import torch
 import torch.nn as nn
 import numpy as np
@@ -173,7 +174,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         model = XLNetModel(config)
 
         # prepare output_attentions and hidden_states
-        model.output_attentions=True
+        #model.output_attentions=True
         model.output_hidden_states=True
 
         ## resume iters:
@@ -201,8 +202,8 @@ if __name__ == '__main__':
     ## Training new data
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
-    main(corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='combined_AE.txt', train_model_name='xlnet_id_wikicombindeAE',
-         model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
-         trained_model_savedir="xlnet/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
+    main(corpus_dir='../../Data/ID/wiki_datasets/', corpus_name='combined_AE.txt', train_model_name='xlnet_id_wikicombindeAE',
+         model_dir='../../Data/ID/wiki_datasets/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
+         trained_model_savedir="/trained-model/xlnet/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
-         spm_model_type='unigram', train_batch_size=8, num_epoch=1000)
+         spm_model_type='unigram', train_batch_size=6, num_epoch=1000)
