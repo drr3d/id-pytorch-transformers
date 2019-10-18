@@ -24,16 +24,13 @@ import os
 import logging
 
 import math
-import numpy as np
-import random
-import pickle
 import time
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, RandomSampler, Dataset
+
 from torch.nn import functional as F
-from torch.nn import CrossEntropyLoss, MSELoss
+from torch.nn import CrossEntropyLoss
 
 logger = logging.getLogger(__name__)
 
@@ -98,9 +95,9 @@ class XLNetConfig(nn.Module):
 """
     def __init__(self,
                  vocab_size_or_config_json_file=1000,#
-                 d_model=512,
+                 d_model=768,
                  n_layer=12,
-                 n_head=8,
+                 n_head=12,
                  d_inner=2048,
                  max_position_embeddings=512,
                  ff_activation="gelu",

@@ -10,9 +10,10 @@ import random
 
 from text_utils import TextDataset, loadAndCacheExamples
 from tokenizer.tokenization_id import TokenizerId
-from modeling.xlnet_modeling import XLNetLMHeadModel, XLNetConfig
+from modeling.xlnet_modeling import XLNetModel, XLNetConfig
 
 from torch.utils.data import DataLoader, RandomSampler, Dataset
+from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 from transformers import WarmupLinearSchedule, AdamW
 
@@ -36,7 +37,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
     train_sampler = RandomSampler(dataset)
     train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=train_batch_size)
     
-    lm_loss = nn.Linear(config.d_model, config.n_token, bias=False).to(device)
+    lm_loss = nn.Linear(config.d_model, config.n_token, bias=True).to(device)
 
     for cur_epoch in range(start_iters, num_epoch):
         start = time.time()
@@ -51,9 +52,13 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 labels = labels.to(device)
 
                 model.train()
-                outputs = model(inputs, labels=labels)
+                outputs = model(inputs)
                 
-                loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
+                logits = lm_loss(outputs[0])
+
+                loss_fct = CrossEntropyLoss(ignore_index=-1)
+                loss = loss_fct(logits.view(-1, logits.size(-1)),
+                                labels.view(-1))
 
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
@@ -101,7 +106,7 @@ def restoreModel(model, resume_iters, model_name, model_save_dir, is_finetune=Fa
 def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_tokenizer=False, train_model_name='gpt2',
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
          resume_iters=0, spm_vocab_size=2000, spm_max_sentence_length=4098, spm_model_name='spm_id', block_size=512,
-         spm_model_type='unigram'):
+         spm_model_type='unigram', train_batch_size=1, num_epoch=1000):
     ###################################################################################
     # set torch device
     if torch.cuda.is_available():
@@ -112,7 +117,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
     set_seed(seed=1332, n_gpu=n_gpu)
 
-    num_epoch = 1000
+    num_epoch = num_epoch
     max_grad_norm = 1.0
     gradient_accumulation_steps = 50
     warmup_steps = 200
@@ -124,7 +129,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
     mlm_probability = 0.15
     local_rank = -1
-    train_batch_size = 1
+    train_batch_size = train_batch_size
     block_size = block_size
 
     ## loading tokenizer
@@ -165,7 +170,11 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         print("t_total: {}".format(t_total))
 
         config = XLNetConfig(vocab_size_or_config_json_file=tokenizer.vocab_size)
-        model = XLNetLMHeadModel(config)
+        model = XLNetModel(config)
+
+        # prepare output_attentions and hidden_states
+        model.output_attentions=True
+        model.output_hidden_states=True
 
         ## resume iters:
         if resume:
@@ -196,4 +205,4 @@ if __name__ == '__main__':
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
          trained_model_savedir="xlnet/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
-         spm_model_type='unigram')
+         spm_model_type='unigram', train_batch_size=8, num_epoch=1000)
