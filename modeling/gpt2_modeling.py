@@ -522,7 +522,7 @@ class GPT2LMHeadModel(nn.Module):
     def __init__(self, config):
         super(GPT2LMHeadModel, self).__init__()
         self.transformer = GPT2Model(config)
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=True)
 
         self.config = config
 

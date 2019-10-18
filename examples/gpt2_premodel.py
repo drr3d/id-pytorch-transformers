@@ -203,3 +203,13 @@ if __name__ == '__main__':
          trained_model_savedir="gpt2/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
          spm_model_type='unigram', train_batch_size=1, num_epoch=10000)
+
+    """
+    main(corpus_dir='../../Data/ID/wiki_datasets/', model_name='epoch_2-gpt2_id_wikicombinedAE_id',
+         corpus_name='combined_AE.txt', train_model_name='gpt2_id_wikicombinedAE',
+         model_dir='../../Data/ID/wiki_datasets/', resume_iters=3,
+         spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
+         trained_model_savedir="trained-model/gpt2/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
+         dotraining=True,  resume=True, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
+         spm_model_type='unigram', train_batch_size=3, num_epoch=10000)
+    """

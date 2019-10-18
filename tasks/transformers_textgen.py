@@ -176,12 +176,12 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
             target_model=target_model
         )
         out = out[0, len(context_tokens):].tolist()
-        context_tokens+=out
+        #context_tokens+=out
 
-    text = tokenizer.decode(context_tokens, clean_up_tokenization_spaces=True, use_spm=use_spm)
-    print(text)
+        text = tokenizer.decode(out, clean_up_tokenization_spaces=True, use_spm=use_spm)
+        print(text)
 
-txtGen("siapa pencipta lagu", model_name_or_path='epoch_3-xlnet_id_wiki00modLM_id', spm_vocab_size=20000, 
-        spm_model_name='spm_wikicombindeAE_id',  target_model='xlnet',  temperature=1.0, top_k=0, top_p=0.9, n_embd=128,
+txtGen("siapa pencipta lagu", model_name_or_path='epoch_0-gpt2_id_wiki00modLM_id', spm_vocab_size=20000, length=15,
+        spm_model_name='spm_wikicombindeAE_id',  target_model='gpt2',  temperature=1.0, top_k=0, top_p=0.9, n_embd=512,
         vocab_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
-        pretrained_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/xlnet/')
+        pretrained_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/gpt2/')

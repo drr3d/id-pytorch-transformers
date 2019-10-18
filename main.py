@@ -175,7 +175,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
         ## Prepare model and training
         models = [
-                    (GPT2Model, GPT2Config), 
+                    (GPT2LMHeadModel, GPT2Config), 
                     #(XLNetModel, XLNetConfig)
                     (XLNetLMHeadModel, XLNetConfig)
                 ]
@@ -213,7 +213,7 @@ if __name__ == '__main__':
          trained_model_savedir="gpt2/", spm_max_sentence_length=80000, spm_model_name='spm_wikicombindeAE_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=True, create_tokenizer=True, block_size=768,
          spm_model_type='unigram')
-    """
+    
     ## Step-2 (optional, only if there is an error, and you unwilling to train the vocab again)
     main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/',
          corpus_name='combined_AE.txt', train_model_name='gpt2_id_wikicombinedAE',
@@ -222,7 +222,7 @@ if __name__ == '__main__':
          trained_model_savedir="gpt2/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
          spm_model_type='unigram')
-    
+    """
 
     """
     ## Resume training
@@ -232,13 +232,13 @@ if __name__ == '__main__':
          trained_model_savedir="gpt2/", spm_max_sentence_length=80000, spm_model_name='spm_combinedAE_unigram_id',
          dotraining=True,  resume=True, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=512,
          spm_model_type='unigram', model_name='epoch_1-gpt2_id_combinedAE_id')
-    
-    main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='wiki_00_mod.txt', train_model_name='xlnet_id_wiki00modLM',
-         model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
-         trained_model_savedir="xlnet/", spm_max_sentence_length=70000, spm_model_name='spm_wikicombindeAE_id', is_finetune=True, from_pretrained=True,
-         dotraining=True,  resume=True, resume_iters=0, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
-         spm_model_type='unigram', model_name='epoch_1-xlnet_id_wikicombindeAE_id')
     """
+    main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='wiki_00_mod.txt', train_model_name='gpt2_id_wiki00modLM',
+         model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
+         trained_model_savedir="gpt2/", spm_max_sentence_length=70000, spm_model_name='spm_wikicombindeAE_id', is_finetune=True, from_pretrained=True,
+         dotraining=True,  resume=True, resume_iters=0, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
+         spm_model_type='unigram', model_name='epoch_1-gpt2_id_wikicombinedAE_id')
+    
 
     """ 
     ## Only process tokenizer
