@@ -30,7 +30,7 @@ import torch
 import torch.nn as nn
 
 from torch.nn import functional as F
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, MSELoss
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,19 @@ try:
 except (ImportError, AttributeError) as e:
     logger.info("Better speed can be achieved with apex installed from https://www.github.com/nvidia/apex .")
     from torch.nn import LayerNorm as XLNetLayerNorm
+
+try:
+    from torch.nn import Identity
+except ImportError:
+    # Older PyTorch compatibility
+    class Identity(nn.Module):
+        r"""A placeholder identity operator that is argument-insensitive.
+        """
+        def __init__(self, *args, **kwargs):
+            super(Identity, self).__init__()
+
+        def forward(self, input):
+            return input
 
 def gelu(x):
     """ Implementation of the gelu activation function.
@@ -95,9 +108,9 @@ class XLNetConfig(nn.Module):
 """
     def __init__(self,
                  vocab_size_or_config_json_file=1000,#
-                 d_model=768,
+                 d_model=512,
                  n_layer=12,
-                 n_head=12,
+                 n_head=8,
                  d_inner=2048,
                  max_position_embeddings=512,
                  ff_activation="gelu",
@@ -471,6 +484,34 @@ class XLNetModel(nn.Module):
         self.layer = nn.ModuleList([XLNetLayer(config) for _ in range(config.n_layer)])
         self.dropout = nn.Dropout(config.dropout)
 
+        self.config = config
+        self.init_weights()
+
+    def init_weights(self):
+        """ Initialize and prunes weights if needed. """
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """ Initialize the weights.
+        """
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, XLNetLayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, XLNetRelativeAttention):
+            for param in [module.q, module.k, module.v, module.o, module.r,
+                          module.r_r_bias, module.r_s_bias, module.r_w_bias,
+                          module.seg_embed]:
+                param.data.normal_(mean=0.0, std=self.config.initializer_range)
+        elif isinstance(module, XLNetModel):
+            module.mask_emb.data.normal_(mean=0.0, std=self.config.initializer_range)
+
     def _resize_token_embeddings(self, new_num_tokens):
         self.word_embedding = self._get_resized_embeddings(self.word_embedding, new_num_tokens)
         return self.word_embedding
@@ -759,7 +800,35 @@ class XLNetLMHeadModel(nn.Module):
         self.transformer = XLNetModel(config)
         self.lm_loss = nn.Linear(config.d_model, config.n_token, bias=True)
 
+        self.config = config
+
+        self.init_weights()
         self.tie_weights()
+        
+    def init_weights(self):
+        """ Initialize and prunes weights if needed. """
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """ Initialize the weights.
+        """
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, XLNetLayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, XLNetRelativeAttention):
+            for param in [module.q, module.k, module.v, module.o, module.r,
+                          module.r_r_bias, module.r_s_bias, module.r_w_bias,
+                          module.seg_embed]:
+                param.data.normal_(mean=0.0, std=self.config.initializer_range)
+        elif isinstance(module, XLNetModel):
+            module.mask_emb.data.normal_(mean=0.0, std=self.config.initializer_range)
 
     def tie_weights(self):
         """ Make sure we are sharing the embeddings
@@ -778,7 +847,7 @@ class XLNetLMHeadModel(nn.Module):
                 'constant',
                 0
             )
-        
+    
     def forward(self, input_ids, attention_mask=None, mems=None, perm_mask=None, target_mapping=None,
                 token_type_ids=None, input_mask=None, head_mask=None, labels=None):
         transformer_outputs = self.transformer(input_ids,
@@ -799,6 +868,174 @@ class XLNetLMHeadModel(nn.Module):
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             loss = loss_fct(logits.view(-1, logits.size(-1)),
                             labels.view(-1))
+            outputs = (loss,) + outputs
+
+        return outputs  # return (loss), logits, mems, (hidden states), (attentions)
+
+class SequenceSummary(nn.Module):
+    r""" Compute a single vector summary of a sequence hidden states according to various possibilities:
+        Args of the config class:
+            summary_type:
+                - 'last' => [default] take the last token hidden state (like XLNet)
+                - 'first' => take the first token hidden state (like Bert)
+                - 'mean' => take the mean of all tokens hidden states
+                - 'cls_index' => supply a Tensor of classification token position (GPT/GPT-2)
+                - 'attn' => Not implemented now, use multi-head attention
+            summary_use_proj: Add a projection after the vector extraction
+            summary_proj_to_labels: If True, the projection outputs to config.num_labels classes (otherwise to hidden_size). Default: False.
+            summary_activation: 'tanh' => add a tanh activation to the output, Other => no activation. Default
+            summary_first_dropout: Add a dropout before the projection and activation
+            summary_last_dropout: Add a dropout after the projection and activation
+    """
+    def __init__(self, config):
+        super(SequenceSummary, self).__init__()
+
+        self.summary_type = config.summary_type if hasattr(config, 'summary_use_proj') else 'last'
+        if self.summary_type == 'attn':
+            # We should use a standard multi-head attention module with absolute positional embedding for that.
+            # Cf. https://github.com/zihangdai/xlnet/blob/master/modeling.py#L253-L276
+            # We can probably just use the multi-head attention module of PyTorch >=1.1.0
+            raise NotImplementedError
+
+        self.summary = Identity()
+        if hasattr(config, 'summary_use_proj') and config.summary_use_proj:
+            if hasattr(config, 'summary_proj_to_labels') and config.summary_proj_to_labels and config.num_labels > 0:
+                num_classes = config.num_labels
+            else:
+                num_classes = config.hidden_size
+            self.summary = nn.Linear(config.hidden_size, num_classes)
+
+        self.activation = Identity()
+        if hasattr(config, 'summary_activation') and config.summary_activation == 'tanh':
+            self.activation = nn.Tanh()
+
+        self.first_dropout = Identity()
+        if hasattr(config, 'summary_first_dropout') and config.summary_first_dropout > 0:
+            self.first_dropout = nn.Dropout(config.summary_first_dropout)
+
+        self.last_dropout = Identity()
+        if hasattr(config, 'summary_last_dropout') and config.summary_last_dropout > 0:
+            self.last_dropout = nn.Dropout(config.summary_last_dropout)
+
+    def forward(self, hidden_states, cls_index=None):
+        """ hidden_states: float Tensor in shape [bsz, ..., seq_len, hidden_size], the hidden-states of the last layer.
+            cls_index: [optional] position of the classification token if summary_type == 'cls_index',
+                shape (bsz,) or more generally (bsz, ...) where ... are optional leading dimensions of hidden_states.
+                if summary_type == 'cls_index' and cls_index is None:
+                    we take the last token of the sequence as classification token
+        """
+        if self.summary_type == 'last':
+            output = hidden_states[:, -1]
+        elif self.summary_type == 'first':
+            output = hidden_states[:, 0]
+        elif self.summary_type == 'mean':
+            output = hidden_states.mean(dim=1)
+        elif self.summary_type == 'cls_index':
+            if cls_index is None:
+                cls_index = torch.full_like(hidden_states[..., :1, :], hidden_states.shape[-2]-1, dtype=torch.long)
+            else:
+                cls_index = cls_index.unsqueeze(-1).unsqueeze(-1)
+                cls_index = cls_index.expand((-1,) * (cls_index.dim()-1) + (hidden_states.size(-1),))
+            # shape of cls_index: (bsz, XX, 1, hidden_size) where XX are optional leading dim of hidden_states
+            output = hidden_states.gather(-2, cls_index).squeeze(-2) # shape (bsz, XX, hidden_size)
+        elif self.summary_type == 'attn':
+            raise NotImplementedError
+
+        output = self.first_dropout(output)
+        output = self.summary(output)
+        output = self.activation(output)
+        output = self.last_dropout(output)
+
+        return output
+
+class XLNetForSequenceClassification(nn.Module):
+    r"""
+        **labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size,)``:
+            Labels for computing the sequence classification/regression loss.
+            Indices should be in ``[0, ..., config.num_labels - 1]``.
+            If ``config.num_labels == 1`` a regression loss is computed (Mean-Square loss),
+            If ``config.num_labels > 1`` a classification loss is computed (Cross-Entropy).
+
+    Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
+        **loss**: (`optional`, returned when ``labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
+            Classification (or regression if config.num_labels==1) loss.
+        **logits**: ``torch.FloatTensor`` of shape ``(batch_size, config.num_labels)``
+            Classification (or regression if config.num_labels==1) scores (before SoftMax).
+        **mems**:
+            list of ``torch.FloatTensor`` (one for each layer):
+            that contains pre-computed hidden-states (key and values in the attention blocks) as computed by the model
+            if config.mem_len > 0 else tuple of None. Can be used to speed up sequential decoding and attend to longer context.
+            See details in the docstring of the `mems` input above.
+        **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
+            list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
+            of shape ``(batch_size, sequence_length, hidden_size)``:
+            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
+        **attentions**: (`optional`, returned when ``config.output_attentions=True``)
+            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
+    """
+    def __init__(self, config):
+        super(XLNetForSequenceClassification, self).__init__()
+        self.num_labels = config.num_labels
+
+        self.transformer = XLNetModel(config)
+        self.sequence_summary = SequenceSummary(config)
+        self.logits_proj = nn.Linear(config.d_model, config.num_labels)
+
+        self.config = config
+
+        self.init_weights()
+
+    def init_weights(self):
+        """ Initialize and prunes weights if needed. """
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """ Initialize the weights.
+        """
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+            if isinstance(module, nn.Linear) and module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, XLNetLayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        elif isinstance(module, XLNetRelativeAttention):
+            for param in [module.q, module.k, module.v, module.o, module.r,
+                          module.r_r_bias, module.r_s_bias, module.r_w_bias,
+                          module.seg_embed]:
+                param.data.normal_(mean=0.0, std=self.config.initializer_range)
+        elif isinstance(module, XLNetModel):
+            module.mask_emb.data.normal_(mean=0.0, std=self.config.initializer_range)
+    
+    def forward(self, input_ids, attention_mask=None, mems=None, perm_mask=None, target_mapping=None,
+                token_type_ids=None, input_mask=None, head_mask=None, labels=None):
+        transformer_outputs = self.transformer(input_ids,
+                                               attention_mask=attention_mask,
+                                               mems=mems,
+                                               perm_mask=perm_mask,
+                                               target_mapping=target_mapping,
+                                               token_type_ids=token_type_ids,
+                                               input_mask=input_mask, 
+                                               head_mask=head_mask)
+        output = transformer_outputs[0]
+
+        output = self.sequence_summary(output)
+        logits = self.logits_proj(output)
+
+        outputs = (logits,) + transformer_outputs[1:]  # Keep mems, hidden states, attentions if there are in it
+
+        if labels is not None:
+            if self.num_labels == 1:
+                #  We are doing regression
+                loss_fct = MSELoss()
+                loss = loss_fct(logits.view(-1), labels.view(-1))
+            else:
+                loss_fct = CrossEntropyLoss()
+                loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
             outputs = (loss,) + outputs
 
         return outputs  # return (loss), logits, mems, (hidden states), (attentions)

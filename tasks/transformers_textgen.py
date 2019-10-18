@@ -17,7 +17,7 @@
 """ Conditional text generation with the auto-regressive models of the library (GPT/GPT-2/Transformer-XL/XLNet)
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
-
+import sys
 import argparse
 import logging
 from tqdm import trange
@@ -27,11 +27,20 @@ import torch.nn.functional as F
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 
-from tokenization_id import TokenizerId
-from modeling.xlnet_modeling import XLNetConfig, XLNetLMHeadModel
-from modeling.gpt2_modeling import GPT2LMHeadModel, GPT2Config
-
 from tqdm import tqdm, trange
+
+try:
+    from id_pytorch_transformers.model_utils import restoreModel
+    from id_pytorch_transformers.tokenizer.tokenization_id import TokenizerId
+    from id_pytorch_transformers.modeling.xlnet_modeling import XLNetConfig, XLNetLMHeadModel
+    from id_pytorch_transformers.modeling.gpt2_modeling import GPT2LMHeadModel, GPT2Config
+except ImportError:
+    sys.path.append("..")
+    from model_utils import restoreModel
+    from tokenizer.tokenization_id import TokenizerId
+    from modeling.xlnet_modeling import XLNetConfig, XLNetLMHeadModel
+    from modeling.gpt2_modeling import GPT2LMHeadModel, GPT2Config
+
 
 # Padding text to help Transformer-XL and XLNet with short prompts as proposed by Aman Rusia
 # in https://github.com/rusiaaman/XLNet-gen#methodology
@@ -110,19 +119,12 @@ def sample_sequence(model, length, context, num_samples=1, temperature=1, top_k=
 def txtGen(input, model_name_or_path=None, length=50, padding_text="", 
          temperature=1.0, top_k=0, top_p=0.9, seed=42, target_model='xlnet',
          use_spm=True, spm_vocab_size=2000, spm_model_name='spm_id', n_embd=128,
-         vocab_model_dir='./samples/wiki_datasets/trained_model/'):
+         vocab_model_dir='./samples/wiki_datasets/trained_model/', pretrained_model_dir=''):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
 
     set_seed(seed, n_gpu)
 
-    #_dataset = './samples/wiki_datasets/id/wiki_00_mod.txt'
-    """with open(_dataset, encoding="utf-8") as fp:
-        line = fp.readline()
-        while line:
-            line = fp.readline()
-            data_list.append(line)
-    print("datalist append is finish...")"""
     tokenizer = TokenizerId(spm_vocab_size=spm_vocab_size)
     tokenizer.from_pretrained(vocab_model_dir, use_spm=use_spm, spm_model_name=spm_model_name)
     print("tokenizer process is finish...")
@@ -150,60 +152,10 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
         model = GPT2LMHeadModel(config)
 
     print("loading previous trained model...")
-    state_dict = torch.load(model_name_or_path, map_location='cpu')
-
-    missing_keys = []
-    unexpected_keys = []
-    error_msgs = []
-
-    # Convert old format to new format if needed from a PyTorch state_dict
-    old_keys = []
-    new_keys = []
-    for key in state_dict.keys():
-        new_key = None
-        if 'gamma' in key:
-            new_key = key.replace('gamma', 'weight')
-        if 'beta' in key:
-            new_key = key.replace('beta', 'bias')
-        if new_key:
-            old_keys.append(key)
-            new_keys.append(new_key)
-    for old_key, new_key in zip(old_keys, new_keys):
-        state_dict[new_key] = state_dict.pop(old_key)
-
-
-    # copy state_dict so _load_from_state_dict can modify it
-    metadata = getattr(state_dict, '_metadata', None)
-    state_dict = state_dict.copy()
-    if metadata is not None:
-        state_dict._metadata = metadata
-
-    def load(module, prefix=''):
-        local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
-        module._load_from_state_dict(
-            state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs)
-        for name, child in module._modules.items():
-            if child is not None:
-                load(child, prefix + name + '.')
-
-    # Make sure we are able to load base models as well as derived models (with heads)
-    start_prefix = ''
-    model_to_load = model
-    load(model_to_load, prefix=start_prefix)
-
-    if len(missing_keys) > 0:
-        print("Weights of {} not initialized from pretrained model: {}".format(
-            model.__class__.__name__, missing_keys))
-    if len(unexpected_keys) > 0:
-        print("Weights from pretrained model not used in {}: {}".format(
-            model.__class__.__name__, unexpected_keys))
-    if len(error_msgs) > 0:
-        raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
-                        model.__class__.__name__, "\n\t".join(error_msgs)))
-
-    # make sure word embedding weights are still tied
-    model.tie_weights()
-    model.eval()
+    model = restoreModel(model, resume_iters=None, 
+                        model_name=model_name_or_path, 
+                        model_save_dir=pretrained_model_dir, 
+                        from_pretrained=True)
 
     model.to(device)
 
@@ -212,7 +164,7 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
     print(model)
     
     raw_ct = context_tokens
-    for i in range(0, 5):
+    for i in range(0, 3):
         out = sample_sequence(
             model=model,
             context=context_tokens,
@@ -221,10 +173,15 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
             top_k=top_k,
             top_p=top_p,
             device=device,
-            target_model='gpt2'
+            target_model=target_model
         )
         out = out[0, len(context_tokens):].tolist()
         context_tokens+=out
 
     text = tokenizer.decode(context_tokens, clean_up_tokenization_spaces=True, use_spm=use_spm)
     print(text)
+
+txtGen("siapa pencipta lagu", model_name_or_path='epoch_3-xlnet_id_wiki00modLM_id', spm_vocab_size=20000, 
+        spm_model_name='spm_wikicombindeAE_id',  target_model='xlnet',  temperature=1.0, top_k=0, top_p=0.9, n_embd=128,
+        vocab_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
+        pretrained_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/xlnet/')

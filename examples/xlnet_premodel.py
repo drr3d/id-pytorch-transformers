@@ -1,3 +1,8 @@
+"""
+    This example intended as instruction for training new XLNet model from scratch,
+    aimed mainly for Indonesian language.
+    But i thinks naturaly this model can be use to train another language as well.
+"""
 import sys
 sys.path.append("..")
 
@@ -7,12 +12,14 @@ import torch
 import torch.nn as nn
 import numpy as np
 import random
+import math
 
 from text_utils import TextDataset, loadAndCacheExamples
+from model_utils import restoreModel
 from tokenizer.tokenization_id import TokenizerId
 from modeling.xlnet_modeling import XLNetModel, XLNetConfig
 
-from torch.utils.data import DataLoader, RandomSampler, Dataset
+from torch.utils.data import DataLoader, RandomSampler
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 from transformers import WarmupLinearSchedule, AdamW
@@ -91,18 +98,6 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         torch.save(model.state_dict(), _path)
 
 
-
-def restoreModel(model, resume_iters, model_name, model_save_dir, is_finetune=False):
-    """Restore the trained generator and discriminator."""
-
-    model_path = os.path.join(model_save_dir, '{}.ckpt'.format(model_name))
-    print('Loading the trained models from step {} - of file: {}'.format(resume_iters, model_path))
-
-    model.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
-    if is_finetune:
-        model.zero_grad()
-    return model
-
 def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_tokenizer=False, train_model_name='gpt2',
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
          resume_iters=0, spm_vocab_size=2000, spm_max_sentence_length=4098, spm_model_name='spm_id', block_size=512,
@@ -173,7 +168,6 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         model = XLNetModel(config)
 
         # prepare output_attentions and hidden_states
-        model.output_attentions=True
         model.output_hidden_states=True
 
         ## resume iters:
@@ -205,4 +199,4 @@ if __name__ == '__main__':
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
          trained_model_savedir="xlnet/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
          dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
-         spm_model_type='unigram', train_batch_size=8, num_epoch=1000)
+         spm_model_type='unigram', train_batch_size=1, num_epoch=1000)
