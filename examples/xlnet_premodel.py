@@ -182,7 +182,13 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         print(model)
         print("The number of model_parameters: {}".format(num_params))
 
-        optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+        weight_decay = 0.1
+        no_decay = ['bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': weight_decay},
+            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=0.00025, eps=1e-8)
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=t_total)
 
         doTraining(model, config, train_dataset, tokenizer, optimizer, scheduler, tr_loss, logging_loss, 

@@ -55,7 +55,16 @@ def doTraining(model, dataset, tokenizer, optimizer, scheduler, tr_loss,
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
                local_rank, train_batch_size, num_epoch, max_grad_norm,
                logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
-               train_model_name='gpt2'):
+               train_model_name='gpt2', fp16=True):
+
+    if fp16:
+        try:
+            from apex import amp
+        except ImportError:
+            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+        #  Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3'], defaul 01
+        print("Trained using apex fp16..")
+        model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
 
     train_sampler = RandomSampler(dataset)
     train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=train_batch_size)
@@ -79,11 +88,18 @@ def doTraining(model, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
 
-                loss.backward()
+                if fp16:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
                 
                 tr_loss += loss.item()
                 if (step + 1) % gradient_accumulation_steps == 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                    if fp16:
+                        torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), max_grad_norm)
+                    else:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
                     # Update parameters and take a step using the computed gradient
                     optimizer.step()
@@ -110,7 +126,7 @@ def doTraining(model, dataset, tokenizer, optimizer, scheduler, tr_loss,
 def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_tokenizer=False, train_model_name='gpt2',
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
          resume_iters=0, spm_vocab_size=2000, spm_max_sentence_length=4098, spm_model_name='spm_id', block_size=512,
-         spm_model_type='unigram', is_finetune=False, from_pretrained=False):
+         spm_model_type='unigram', is_finetune=False, from_pretrained=False, train_batch_size=1, num_epoch=1000, fp16=False):
     ###################################################################################
     # set torch device
     if torch.cuda.is_available():
@@ -121,7 +137,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
     set_seed(seed=1332, n_gpu=n_gpu)
 
-    num_epoch = 10000
+    num_epoch = num_epoch
     max_grad_norm = 1.0
     gradient_accumulation_steps = 50
     warmup_steps = 500
@@ -133,7 +149,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
     mlm_probability = 0.15
     local_rank = -1
-    train_batch_size = 1
+    train_batch_size = train_batch_size
     block_size = block_size
 
     ## loading tokenizer
@@ -194,12 +210,18 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         print(model)
         print("The number of model_parameters: {}".format(num_params))
 
-        optimizer = AdamW(model.parameters(), lr=0.00025, weight_decay=0.01)
+        weight_decay = 0.1
+        no_decay = ['bias', 'LayerNorm.weight']
+        optimizer_grouped_parameters = [
+            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': weight_decay},
+            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=0.00025, eps=1e-8)
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=t_total)
 
         doTraining(model, train_dataset, tokenizer, optimizer, scheduler, tr_loss, logging_loss, 
                    gradient_accumulation_steps, mlm_probability, device, local_rank, train_batch_size,
-                   num_epoch=num_epoch, start_iters=resume_iters, max_grad_norm=max_grad_norm, 
+                   num_epoch=num_epoch, start_iters=resume_iters, max_grad_norm=max_grad_norm, fp16=fp16,
                    logging_steps=logging_steps, save_dir=model_dir+trained_model_savedir, train_model_name=train_model_name)
 
 if __name__ == '__main__':
@@ -237,7 +259,7 @@ if __name__ == '__main__':
          model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
          trained_model_savedir="gpt2/", spm_max_sentence_length=70000, spm_model_name='spm_wikicombindeAE_id', is_finetune=True, from_pretrained=True,
          dotraining=True,  resume=True, resume_iters=0, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
-         spm_model_type='unigram', model_name='epoch_1-gpt2_id_wikicombinedAE_id')
+         spm_model_type='unigram', model_name='epoch_15-gpt2_id_wikicombinedAE_id', train_batch_size=1, fp16=False)
     
 
     """ 

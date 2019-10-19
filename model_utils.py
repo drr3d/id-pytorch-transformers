@@ -11,6 +11,8 @@ def restoreModel(model, resume_iters, model_name, model_save_dir, is_finetune=Fa
 
     state_dict = torch.load(model_path, map_location=lambda storage, loc: storage)
     
+    ## use from_pretrained if only for the firstime u fine-tune any transformers base model
+    ##  after that(after any saved trained model) u can just directly load the previous trained fine-tuned model.
     if from_pretrained:
         missing_keys = []
         unexpected_keys = []

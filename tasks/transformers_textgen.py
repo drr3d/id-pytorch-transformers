@@ -39,7 +39,7 @@ except ImportError:
     from model_utils import restoreModel
     from tokenizer.tokenization_id import TokenizerId
     from modeling.xlnet_modeling import XLNetConfig, XLNetLMHeadModel
-    from modeling.gpt2_modeling import GPT2LMHeadModel, GPT2Config
+    from modeling.gpt2_modeling import GPT2LMHeadModel, GPT2Config, GPT2Model
 
 
 # Padding text to help Transformer-XL and XLNet with short prompts as proposed by Aman Rusia
@@ -149,7 +149,7 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
     elif target_model=='gpt2':
         # GPT-2
         config = GPT2Config(vocab_size_or_config_json_file=tokenizer.vocab_size, n_embd=n_embd) # <-- make sure to use same vocab, if not would error and need to adjust vocab_size manually
-        model = GPT2LMHeadModel(config)
+        model = GPT2LMHeadModel(config) # GPT2Model(config) #
 
     print("loading previous trained model...")
     model = restoreModel(model, resume_iters=None, 
@@ -164,7 +164,7 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
     print(model)
     
     raw_ct = context_tokens
-    for i in range(0, 3):
+    for i in range(0, 10):
         out = sample_sequence(
             model=model,
             context=context_tokens,
@@ -176,12 +176,13 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
             target_model=target_model
         )
         out = out[0, len(context_tokens):].tolist()
-        #context_tokens+=out
+        context_tokens+=out
 
-        text = tokenizer.decode(out, clean_up_tokenization_spaces=True, use_spm=use_spm)
-        print(text)
+    text = tokenizer.decode(context_tokens, clean_up_tokenization_spaces=True, use_spm=use_spm)
+    print(text)
 
-txtGen("siapa pencipta lagu", model_name_or_path='epoch_0-gpt2_id_wiki00modLM_id', spm_vocab_size=20000, length=15,
+text = ['Pesta Olahraga Asia Tenggara', "Tolondadu merupakan salah satu"]
+txtGen(text[0], model_name_or_path='epoch_15-gpt2_id_wiki00modLM_id', spm_vocab_size=20000, length=5, use_spm=True,
         spm_model_name='spm_wikicombindeAE_id',  target_model='gpt2',  temperature=1.0, top_k=0, top_p=0.9, n_embd=512,
         vocab_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
         pretrained_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/gpt2/')
