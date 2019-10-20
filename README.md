@@ -5,7 +5,7 @@
 </p>
 
 <h3 align="center">
-<p>State-of-the-art Natural Language Processing with PyTorch | untuk pemodelan bahasa Indonesia dengan **[pytorch-transformers](https://github.com/huggingface/transformers)**.
+<p>State-of-the-art Natural Language Processing with PyTorch | untuk pemodelan bahasa Indonesia dengan <b>pytorch-transformers</b>.
 </h3>
 
 # id-pytorch-transformers
