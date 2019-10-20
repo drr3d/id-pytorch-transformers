@@ -200,7 +200,9 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
         ## resume iters:
         if resume:
-            model = restoreModel(model, resume_iters=resume_iters, model_name=model_name, model_save_dir=model_dir+trained_model_savedir, is_finetune=is_finetune, from_pretrained=from_pretrained)
+            model = restoreModel(model, resume_iters=resume_iters, model_name=model_name, 
+                                model_save_dir=model_dir+trained_model_savedir, 
+                                is_finetune=is_finetune, from_pretrained=from_pretrained)
             
         model.to(device)
 
@@ -257,16 +259,16 @@ if __name__ == '__main__':
     """
     main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='wiki_00_mod.txt', train_model_name='gpt2_id_wiki00modLM',
          model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id',
-         trained_model_savedir="gpt2/", spm_max_sentence_length=70000, spm_model_name='spm_wikicombindeAE_id', is_finetune=True, from_pretrained=True,
-         dotraining=True,  resume=True, resume_iters=0, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
+         trained_model_savedir="gpt2/", spm_max_sentence_length=70000, spm_model_name='spm_wikicombindeAE_id', is_finetune=False, from_pretrained=False,
+         dotraining=True,  resume=True, resume_iters=16, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
          spm_model_type='unigram', model_name='epoch_15-gpt2_id_wikicombinedAE_id', train_batch_size=1, fp16=False)
     
 
     """ 
     ## Only process tokenizer
     ##  set save_tokenized=True, create_tokenizer=True for retraining the tokenizer
-    main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', corpus_name='combined_all.txt', train_model_name='gpt2_id_combinedAll',
+    main(corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/newspapers/', corpus_name='idnews_combinedAll.txt', 
          model_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/', spm_vocab_size=50000, vocab_name='vocab_combinedAll_id',
          trained_model_savedir="gpt2/", spm_max_sentence_length=80000, spm_model_name='spm_combinedAll_unigram_id',
-         dotraining=False,  resume=False, train_spm=True, save_tokenized=True, create_tokenizer=True, block_size=768)
+         dotraining=False,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=1024)
     """
