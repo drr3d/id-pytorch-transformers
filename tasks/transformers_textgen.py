@@ -164,7 +164,7 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
     print(model)
     
     raw_ct = context_tokens
-    for i in range(0, 4):
+    for i in range(0, 10):
         out = sample_sequence(
             model=model,
             context=context_tokens,
@@ -176,13 +176,13 @@ def txtGen(input, model_name_or_path=None, length=50, padding_text="",
             target_model=target_model
         )
         out = out[0, len(context_tokens):].tolist()
-        #context_tokens+=out
+        context_tokens+=out
 
         text = tokenizer.decode(out, clean_up_tokenization_spaces=True, use_spm=use_spm)
         print(text)
 
-text = ['Pesta Olahraga Asia Tenggara', "Tolondadu merupakan salah satu"]
-txtGen(text[1], model_name_or_path='epoch_15-gpt2_id_wiki00modLM_id', spm_vocab_size=20000, length=35, use_spm=True,
+text = ['Pesta Olahraga Asia Tenggara', "Tolondadu merupakan salah satu", "ketika lapar maka kita akan memesan"]
+txtGen(text[2], model_name_or_path='epoch_30-gpt2_id_wiki00modLM_id', spm_vocab_size=20000, length=25, use_spm=True,
         spm_model_name='spm_wikicombindeAE_id',  target_model='gpt2',  temperature=1.0, top_k=0, top_p=0.9, n_embd=512,
         vocab_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
         pretrained_model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/gpt2/')
