@@ -37,9 +37,13 @@ def set_seed(seed, n_gpu=1):
 
 def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss, 
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
-               local_rank, train_batch_size, num_epoch, max_grad_norm,
+               local_rank, train_batch_size, num_epoch, max_grad_norm, n_gpu,
                logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
                train_model_name='gpt2'):
+
+
+    if n_gpu > 1:
+        model = torch.nn.DataParallel(model)
 
     train_sampler = RandomSampler(dataset)
     train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=train_batch_size)
@@ -66,6 +70,9 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 loss_fct = CrossEntropyLoss(ignore_index=-1)
                 loss = loss_fct(logits.view(-1, logits.size(-1)),
                                 labels.view(-1))
+
+                if n_gpu > 1:
+                    loss = loss.mean()
 
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
@@ -193,7 +200,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
         doTraining(model, config, train_dataset, tokenizer, optimizer, scheduler, tr_loss, logging_loss, 
                    gradient_accumulation_steps, mlm_probability, device, local_rank, train_batch_size,
-                   num_epoch=num_epoch, start_iters=resume_iters, max_grad_norm=max_grad_norm, 
+                   num_epoch=num_epoch, start_iters=resume_iters, max_grad_norm=max_grad_norm, n_gpu=n_gpu,
                    logging_steps=logging_steps, save_dir=model_dir+trained_model_savedir, train_model_name=train_model_name)
 
 if __name__ == '__main__':

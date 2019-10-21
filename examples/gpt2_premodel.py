@@ -37,7 +37,7 @@ def set_seed(seed, n_gpu=1):
 
 def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss, 
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
-               local_rank, train_batch_size, num_epoch, max_grad_norm,
+               local_rank, train_batch_size, num_epoch, max_grad_norm, n_gpu=1,
                logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
                train_model_name='gpt2', fp16=False):
 
@@ -50,6 +50,9 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         print("Trained using apex fp16..")
         model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
 
+    if n_gpu > 1:
+        model = torch.nn.DataParallel(model)
+        
     train_sampler = RandomSampler(dataset)
     train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=train_batch_size)
     
@@ -75,6 +78,9 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 loss_fct = CrossEntropyLoss(ignore_index=-1)
                 loss = loss_fct(logits.view(-1, logits.size(-1)),
                                 labels.view(-1))
+
+                if n_gpu > 1:
+                    loss = loss.mean()
 
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
@@ -125,6 +131,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
     else: 
         device = torch.device("cpu")
     n_gpu = torch.cuda.device_count()
+    
 
     set_seed(seed=1332, n_gpu=n_gpu)
 
@@ -136,7 +143,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
     tr_loss, logging_loss = 0.0, 0.0
 
     logging_steps = 50
-    max_steps = -1
+    max_steps = 1000
 
     mlm_probability = 0.15
     local_rank = -1
@@ -149,7 +156,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
     ## prepare dataset
     _dataset = corpus_dir + corpus_name
     if create_tokenizer:
-        data_list=['<unk>','<sep>', '<cls>']
+        data_list=['<unk>','<sep>', '<cls>','<mask>']
         with open(_dataset, encoding="utf-8") as fp:
             line = fp.readline()
             while line:
@@ -209,7 +216,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=t_total)
 
         doTraining(model, config, train_dataset, tokenizer, optimizer, scheduler, tr_loss, logging_loss, 
-                   gradient_accumulation_steps, mlm_probability, device, local_rank, train_batch_size,
+                   gradient_accumulation_steps, mlm_probability, device, local_rank, train_batch_size, n_gpu=n_gpu,
                    num_epoch=num_epoch, start_iters=resume_iters, max_grad_norm=max_grad_norm, fp16=fp16,
                    logging_steps=logging_steps, save_dir=model_dir+trained_model_savedir, train_model_name=train_model_name)
 

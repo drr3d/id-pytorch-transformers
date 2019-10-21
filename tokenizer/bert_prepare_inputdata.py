@@ -12,13 +12,17 @@ import random
 import six
 import sentencepiece as spm
 import collections
+import torch
 
-corpus_dir='../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
+from torch.utils.data import TensorDataset
+
+corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
 corpus_name = 'wiki_00mod_bert.txt' # combined_all.txt' #
+spm_retrained_corpus = 'combined_all.txt'
 
-tokenizer_dir = '../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
-spm_model_name = 'spm_combinedAll_unigram_id.model'
-spm_vocab_name = 'spm_combinedAll_unigram_id.vocab'
+tokenizer_dir = '../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
+spm_model_name = 'spm_combinedAll_wordBert_id.model'
+spm_vocab_name = 'spm_combinedAll_wordBert_id.vocab'
 
 def getNumLines(file_path):
     fp = open(file_path, "r+")
@@ -442,7 +446,33 @@ class FullTokenizer(object):
     def convert_ids_to_tokens(self, ids):
         return self.sentencepiece_tokenizer.sp.IdToPiece(ids)
 
-""" """
+class InputFeatures(object):
+    """A single set of features of data."""
+
+    def __init__(self, input_ids, input_mask, segment_ids, masked_lm_positions, masked_lm_ids=None, 
+                 masked_lm_weights=None, next_sentence_labels=None,
+                 label_id=None, valid_ids=None, label_mask=None):
+        self.input_ids = input_ids
+        self.input_mask = input_mask
+        self.segment_ids = segment_ids
+        self.masked_lm_positions = masked_lm_positions
+        self.masked_lm_ids = masked_lm_ids
+        self.masked_lm_weights = masked_lm_weights
+        self.next_sentence_labels = next_sentence_labels
+
+        # for NER
+        self.label_id = label_id
+        self.valid_ids = valid_ids
+        self.label_mask = label_mask
+
+# spm_model_type: 'unigram', 'bpe'
+create_spm_model = False
+if create_spm_model:
+    import sentencepiece as spm
+    spm.SentencePieceTrainer.Train('--input={} --model_prefix={} --vocab_size={} --model_type={} \
+                                    --hard_vocab_limit=false --max_sentence_length={} \
+                                    --user_defined_symbols=[MASK], --control_symbols=[CLS],[SEP]'.format(corpus_dir+spm_retrained_corpus, 'spm_combinedAll_wordBert_id', 100000, 'word', 80000))
+"""
 max_seq_length = 128
 dupe_factor = 10
 short_seq_prob = 0.1
@@ -451,19 +481,84 @@ max_predictions_per_seq = 20
 random_seed = 1337
 do_lower_case = True
 
+
 tokenizer = FullTokenizer(piece_model=tokenizer_dir+spm_model_name,
                           piece_vocab=tokenizer_dir+spm_vocab_name,
                           do_lower_case=do_lower_case)
 
-#input_files = []
-#for input_pattern in input_file.split(","):
-#    input_files.extend(tf.gfile.Glob(input_pattern))
 
 instances = create_training_instances(
     [corpus_dir+corpus_name], tokenizer, max_seq_length, dupe_factor,
     short_seq_prob, masked_lm_prob, max_predictions_per_seq,
     random.Random(random_seed))
 
-#output_files = output_file.split(",")
-#write_instance_to_example_files(instances, tokenizer, max_seq_length,
-#                                max_predictions_per_seq, output_files)
+
+
+
+features = []
+for (inst_index, instance) in enumerate(instances):
+    input_ids = [ids for token in instance.tokens for ids in tokenizer.convert_tokens_to_ids(token)]
+    input_mask = [1] * len(input_ids)
+    segment_ids = list(instance.segment_ids)
+
+    assert len(input_ids) <= max_seq_length
+    
+    while len(input_ids) < max_seq_length:
+        input_ids.append(0)
+        input_mask.append(0)
+        segment_ids.append(0)
+
+    assert len(input_ids) == max_seq_length
+    assert len(input_mask) == max_seq_length
+    assert len(segment_ids) == max_seq_length
+
+    masked_lm_positions = list(instance.masked_lm_positions)
+    masked_lm_ids = [ids for token in instance.masked_lm_labels for ids in tokenizer.convert_tokens_to_ids(token)]
+    masked_lm_weights = [1.0] * len(masked_lm_ids)
+
+    while len(masked_lm_positions) < max_predictions_per_seq:
+        masked_lm_positions.append(0)
+        masked_lm_ids.append(0)
+        masked_lm_weights.append(0.0)
+
+    next_sentence_label = 1 if instance.is_random_next else 0
+
+    features.append(
+                InputFeatures(input_ids=input_ids,
+                              input_mask=input_mask,
+                              segment_ids=segment_ids,
+                              masked_lm_positions=masked_lm_positions,
+                              masked_lm_ids=masked_lm_ids,
+                              masked_lm_weights=masked_lm_weights,
+                              next_sentence_labels=[next_sentence_label]))
+
+
+import sys
+
+all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+all_masked_lm_positions = torch.tensor([f.masked_lm_positions for f in features], dtype=torch.long)
+all_masked_lm_ids = torch.tensor([f.masked_lm_ids for f in features], dtype=torch.long)
+all_masked_lm_weights = torch.tensor([f.masked_lm_weights for f in features], dtype=torch.float)
+all_next_sentence_labels = torch.tensor([f.next_sentence_labels for f in features], dtype=torch.long)
+
+train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, 
+                            all_masked_lm_positions, all_masked_lm_ids,
+                            all_next_sentence_labels)
+
+
+from torch.utils.data import DataLoader, RandomSampler
+batchsize=1
+train_sampler = RandomSampler(train_data)
+train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=batchsize)
+
+epoch_iterator = tqdm(train_dataloader, desc="Iteration-{}".format(1))
+nn=0
+for step, batch in enumerate(epoch_iterator):
+    print(batch)
+
+    if nn == 3:
+        sys.exit()
+    nn+=1
+ """ 
