@@ -13,6 +13,7 @@ import torch.nn as nn
 import numpy as np
 import random
 import math
+import pickle
 
 from text_utils import TextDataset, loadAndCacheExamples
 from model_utils import restoreModel
@@ -57,7 +58,6 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
     train_sampler = RandomSampler(dataset)
     train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=train_batch_size)
     
-    lm_loss = nn.Linear(config.n_embd, config.vocab_size, bias=True).to(device)
 
     for cur_epoch in range(start_iters, num_epoch):
         start = time.time()
@@ -67,32 +67,28 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         for step, batch in enumerate(epoch_iterator):
                 # The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated)
                 #   To train the model, you should first set it back in training mode with ``model.train()``
-                inputs, labels = (batch.type(torch.cuda.LongTensor), batch.type(torch.cuda.LongTensor))
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+                input_ids, input_mask, segment_ids, masked_lm_positions, masked_lm_ids, masked_lm_weights, next_sentence_labels = batch
+                #inputs = inputs.to(device)
+                #labels = labels.to(device)
 
                 model.train()
-                outputs = model(inputs)
+                outputs = model(input_ids.to(device))
                 
-                logits = lm_loss(outputs[0])
-
-                loss_fct = CrossEntropyLoss(ignore_index=-1)
-                loss = loss_fct(logits.view(-1, logits.size(-1)),
-                                labels.view(-1))
+    
 
                 if n_gpu > 1:
                     loss = loss.mean()
 
-                if gradient_accumulation_steps > 1:
-                    loss = loss / gradient_accumulation_steps
+                #if gradient_accumulation_steps > 1:
+                #    loss = loss / gradient_accumulation_steps
 
-                if fp16:
-                    with amp.scale_loss(loss, optimizer) as scaled_loss:
-                        scaled_loss.backward()
-                else:
-                    loss.backward()
+                #if fp16:
+                #    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                #        scaled_loss.backward()
+                #else:
+                #    loss.backward()
                 
-                tr_loss += loss.item()
+                #tr_loss += loss.item()
                 if (step + 1) % gradient_accumulation_steps == 0:
                     if fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), max_grad_norm)
@@ -109,7 +105,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                     model.zero_grad()
     
         end = time.time()
-        op = "Epoch: {}, completed in: {}, loss: {}, perplexity: {}\n".format(cur_epoch, (end - start), (tr_loss - logging_loss)/logging_steps, 
+        op = "Epoch: {}, completed in: {}, perplexity: {}\n".format(cur_epoch, (end - start),
                                                                               math.exp(loss))
         print(op)
         with open("saved_trainingprogress.txt", 'a') as fw:
@@ -206,7 +202,7 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
 
     train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, 
                                 all_masked_lm_positions, all_masked_lm_ids,
-                                all_next_sentence_labels)
+                                all_masked_lm_weights, all_next_sentence_labels)
     
 
     print("saving data to: {}".format(save_directory))
@@ -299,7 +295,7 @@ if __name__ == '__main__':
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
     main(corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', 
-         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll',
+         corpus_name='wiki_00mod_berts.txt', train_model_name='bert_id_wikicombinedAll', # wiki_00mod_berts, wiki_combinedall_ID_bert
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
          vocab_name=None, fp16=False, spm_model_name='spm_combinedAll_wordBert_id', trained_model_savedir="bert/",
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, train_spm=True,
