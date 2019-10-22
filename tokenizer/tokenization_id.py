@@ -22,6 +22,7 @@ import re
 import torch
 from shutil import copyfile, move
 import pickle
+import warnings
 
 from sklearn.feature_extraction.text import CountVectorizer
 import sentencepiece as spm
@@ -517,15 +518,19 @@ class TokenizerId(object):
         if not os.path.isdir(load_directory):
             logger.error("Loading directory ({}) should be a directory".format(load_directory))
             return
-        print("loading: {}".format(load_directory+"/{}.pkl".format(std_vocab_name)))
-        with open(load_directory+"/{}.pkl".format(std_vocab_name), 'rb') as handle:
-            self.skl_model = pickle.load(handle)
-  
-        # summarize
-        self.vocabulary = self.skl_model.vocabulary_
-        self.unk_vocab_ix = self.vocabulary.get(self._unk_token)
-        self.sklearn_tokenizer = self.skl_model.build_tokenizer()
+        
+        if std_vocab_name is not None:
+            print("loading: {}".format(load_directory+"/{}.pkl".format(std_vocab_name)))
+            with open(load_directory+"/{}.pkl".format(std_vocab_name), 'rb') as handle:
+                self.skl_model = pickle.load(handle)
 
+            # summarize
+            self.vocabulary = self.skl_model.vocabulary_
+            self.unk_vocab_ix = self.vocabulary.get(self._unk_token)
+            self.sklearn_tokenizer = self.skl_model.build_tokenizer()
+        else:
+            warnings.warn("Warning vocab name is empty! This only allowed on BERT training..")
+    
         if use_spm:
             if train_spm:
                 # model_type: 'unigram', 'bpe'
@@ -554,8 +559,11 @@ class TokenizerId(object):
             logger.error("Saving directory ({}) should be a directory".format(save_directory))
             return
         print("saving data to: {}".format(save_directory))
-        with open(save_directory+"/{}.pkl".format(vocab_name), 'wb') as handle:
-            pickle.dump(self.skl_model, handle)
+        if vocab_name is not None:
+            with open(save_directory+"/{}.pkl".format(vocab_name), 'wb') as handle:
+                pickle.dump(self.skl_model, handle)
+        else:
+            warnings.warn("Warning vocab name is empty! This only allowed on BERT training..")
 
 
 """

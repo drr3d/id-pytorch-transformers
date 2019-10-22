@@ -17,9 +17,7 @@ import math
 from text_utils import TextDataset, loadAndCacheExamples
 from model_utils import restoreModel
 from tokenizer.tokenization_id import TokenizerId
-from tokenizer.bert_prepare_inputdata import FullTokenizer as bertFullTokenizer, 
-                                            create_training_instances as bert_create_training_instances,
-                                            InputFeatures as bertInputFeatures
+from tokenizer.bert_prepare_inputdata import FullTokenizer as bertFullTokenizer, create_training_instances as bert_create_training_instances, InputFeatures as bertInputFeatures
 from modeling.bert_modeling import BertModel, BertConfig
 
 
@@ -40,8 +38,8 @@ def set_seed(seed, n_gpu=1):
 
 def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss, 
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
-               local_rank, train_batch_size, num_epoch, max_grad_norm, n_gpu=1,
-               logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
+               local_rank, train_batch_size, num_epoch, max_grad_norm, logging_steps,
+               n_gpu=1, start_iters=0, mlm=False, save_dir='./pretrained/',  
                train_model_name='gpt2', fp16=False):
 
     if fp16:
@@ -122,8 +120,9 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         _path = os.path.join(save_dir, 'epoch_{}-{}_id.ckpt'.format(cur_epoch, train_model_name))
         torch.save(model.state_dict(), _path)
 
-def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, spm_vocab_name, do_lower_case=True):
+def bertDataLoader(pickle_name):
     """ """
+    print("Prepare BERT data prerpocessing...")
     max_seq_length = 128
     dupe_factor = 10
     short_seq_prob = 0.1
@@ -131,18 +130,34 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
     max_predictions_per_seq = 20
     random_seed = 1337
 
-
+    print("Prepare BERT tokenizer...")
     tokenizer = bertFullTokenizer(piece_model=tokenizer_dir+spm_model_name,
-                                 piece_vocab=tokenizer_dir+spm_vocab_name,
-                                 do_lower_case=do_lower_case)
+                                  piece_vocab=tokenizer_dir+spm_vocab_name,
+                                  do_lower_case=do_lower_case)
 
+def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, spm_vocab_name, 
+                       do_lower_case=True, save_filename='bert_traintensor_wikiall', save_directory="./"):
+    """ """
+    print("Prepare BERT data prerpocessing...")
+    max_seq_length = 128
+    dupe_factor = 10
+    short_seq_prob = 0.1
+    masked_lm_prob = 0.15
+    max_predictions_per_seq = 20
+    random_seed = 1337
 
+    print("Prepare BERT tokenizer...")
+    tokenizer = bertFullTokenizer(piece_model=tokenizer_dir+spm_model_name,
+                                  piece_vocab=tokenizer_dir+spm_vocab_name,
+                                  do_lower_case=do_lower_case)
+
+    print("Prepare BERT training instance...")
     instances = bert_create_training_instances([corpus_dir+corpus_name], tokenizer, max_seq_length, dupe_factor,
                                                 short_seq_prob, masked_lm_prob, max_predictions_per_seq,
                                                 random.Random(random_seed))
 
     features = []
-    for (inst_index, instance) in enumerate(instances):
+    for (inst_index, instance) in enumerate(tqdm(instances)):
         input_ids = [ids for token in instance.tokens for ids in tokenizer.convert_tokens_to_ids(token)]
         input_mask = [1] * len(input_ids)
         segment_ids = list(instance.segment_ids)
@@ -178,7 +193,6 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
                                         masked_lm_weights=masked_lm_weights,
                                         next_sentence_labels=[next_sentence_label]))
 
-
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
     all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
@@ -190,7 +204,13 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
     train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, 
                                 all_masked_lm_positions, all_masked_lm_ids,
                                 all_next_sentence_labels)
-    return train_data
+    
+
+    print("saving data to: {}".format(save_directory))
+    with open(save_directory+"/{}.pkl".format(save_filename), 'wb') as handle:
+        pickle.dump(train_data, handle)
+
+    return train_data, tokenizer
 
 def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_tokenizer=False, train_model_name='gpt2',
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
@@ -209,8 +229,8 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
 
     num_epoch = num_epoch
     max_grad_norm = 1.0
-    gradient_accumulation_steps = 50
-    warmup_steps = 500
+    gradient_accumulation_steps = 5
+    warmup_steps = 30
 
     tr_loss, logging_loss = 0.0, 0.0
 
@@ -222,24 +242,11 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
     train_batch_size = train_batch_size
     block_size = block_size
 
-    ## loading tokenizer
-    tokenizer = TokenizerId(spm_vocab_size=spm_vocab_size)
-
-    ## prepare dataset
-    _dataset = corpus_dir + corpus_name
-
-    tokenizer.from_pretrained(model_dir, use_spm=train_spm,
-                             spm_model_name=spm_model_name, 
-                             spm_max_sentence_length=spm_max_sentence_length,
-                             std_vocab_name=vocab_name)
-    print("tokenizer.vocab_size: {}".format(tokenizer.vocab_size))
-
-    ## saving tokenized object for consistent use
-    if save_tokenized:
-        tokenizer.save_pretrained(model_dir, vocab_name=vocab_name)
-
     ## create cache of training dataset
-    train_dataset = loadAndCacheExamples(_dataset, block_size, tokenizer, evaluate=False, use_spm=train_spm)
+    train_dataset, tokenizer = bertDataProcessing(corpus_dir, corpus_name, model_dir, 
+                                                  "{}.model".format(spm_model_name), "{}.vocab".format(spm_model_name), 
+                                                  do_lower_case=True, save_filename='bert_traintensor_wikiall', 
+                                                  save_directory="./")
 
     if dotraining:
         dataset = train_dataset
@@ -251,11 +258,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
             t_total = len(dataset) // gradient_accumulation_steps * num_epoch
         print("t_total: {}".format(t_total))
 
-        config = BertConfig(vocab_size_or_config_json_file=tokenizer.vocab_size)
-
-        # prepare output_attentions and hidden_states
-        config.output_hidden_states=True
-
+        config = BertConfig(vocab_size_or_config_json_file=spm_vocab_size)
         model = BertModel(config)
 
         ## resume iters:
@@ -263,7 +266,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
             model = restoreModel(model, resume_iters=resume_iters, 
                                 model_name=model_name, 
                                 model_save_dir=model_dir+trained_model_savedir, 
-                                base_model_prefix='gpt2')
+                                base_model_prefix='bert')
             
         model.to(device)
 
@@ -293,11 +296,9 @@ if __name__ == '__main__':
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
     main(corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', 
-         corpus_name='combined_AE.txt', train_model_name='gpt2_id_wikicombinedAE',
+         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll',
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
-         spm_vocab_size=20000, vocab_name='vocab_wikicombindeAE_id', fp16=False,
-         trained_model_savedir="gpt2/", spm_max_sentence_length=75000, spm_model_name='spm_wikicombindeAE_id',
-         dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
-         spm_model_type='unigram', train_batch_size=1, num_epoch=10000)
-
-    """
+         vocab_name=None, fp16=False, spm_model_name='spm_combinedAll_wordBert_id', trained_model_savedir="bert/",
+         save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, train_spm=True,
+         spm_vocab_size=100000, block_size=768,  spm_model_type='word',
+         spm_max_sentence_length=80000, train_batch_size=1, num_epoch=100)

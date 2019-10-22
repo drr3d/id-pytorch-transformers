@@ -9,3 +9,6 @@ __pycache__/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# temporary train data
+wiki_00mod_bert.txt

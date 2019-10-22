@@ -16,13 +16,13 @@ import torch
 
 from torch.utils.data import TensorDataset
 
-corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
-corpus_name = 'wiki_00mod_bert.txt' # combined_all.txt' #
-spm_retrained_corpus = 'combined_all.txt'
+#corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
+#corpus_name = 'combined_all.txt' # combined_all.txt' #
+#spm_retrained_corpus = 'combined_all.txt'
 
-tokenizer_dir = '../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
-spm_model_name = 'spm_combinedAll_wordBert_id.model'
-spm_vocab_name = 'spm_combinedAll_wordBert_id.vocab'
+#tokenizer_dir = '../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
+#spm_model_name = 'spm_combinedAll_wordBert_id.model'
+#spm_vocab_name = 'spm_combinedAll_wordBert_id.vocab'
 
 def getNumLines(file_path):
     fp = open(file_path, "r+")
@@ -32,7 +32,7 @@ def getNumLines(file_path):
         lines += 1
     return lines
 
-def recleanWiki(output_filename):
+def recleanWiki(corpus_dir, corpus_name, output_filename):
     raw_data = []
     with open(corpus_dir+corpus_name, encoding="utf-8") as f:
         for line in tqdm(f, total=getNumLines(corpus_dir+corpus_name)):
@@ -46,11 +46,12 @@ def recleanWiki(output_filename):
 
     # write re-formated data
     with open(output_filename, 'w',  encoding="utf-8") as file_handler:
-        for n in raw_data:
+        print("Write output file...")
+        for n in tqdm(raw_data, total=len(raw_data)):
             for sent in n:
                 file_handler.write("{}\n".format(sent.strip()))
             file_handler.write("\n")
-# recleanWiki('wiki_00mod_bert.txt')
+#recleanWiki('wiki_00mod_bert.txt')
 
 
 class TrainingInstance(object):
@@ -92,7 +93,7 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
     # sentence boundaries for the "next sentence prediction" task).
     # (2) Blank lines between documents. Document boundaries are needed so
     # that the "next sentence prediction" task doesn't span between documents.
-    for input_file in input_files:
+    for input_file in tqdm(input_files, desc="Create TrainingInstance"):
         with open(input_file, "rb") as reader:
             while True:
                 line = convert_to_unicode(reader.readline())
