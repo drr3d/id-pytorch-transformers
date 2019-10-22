@@ -66,7 +66,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         for step, batch in enumerate(epoch_iterator):
                 # The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated)
                 #   To train the model, you should first set it back in training mode with ``model.train()``
-                inputs, labels = (batch.type(torch.cuda.LongTensor), batch.type(torch.cuda.LongTensor))
+                inputs, labels = (batch.type(torch.LongTensor), batch.type(torch.LongTensor))
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
