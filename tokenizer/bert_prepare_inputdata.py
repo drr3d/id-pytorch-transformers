@@ -13,6 +13,7 @@ import six
 import sentencepiece as spm
 import collections
 import torch
+import sys
 
 from torch.utils.data import TensorDataset
 
@@ -114,12 +115,18 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
 
     vocab_words = list(tokenizer.vocab.keys())
     instances = []
+    
+    print("create training instance processed {} len of all_documents!".format(len(all_documents)))
     for _ in range(dupe_factor):
-        for document_index in range(len(all_documents)):
-            instances.extend(
-                create_instances_from_document(
-                    all_documents, document_index, max_seq_length, short_seq_prob,
-                    masked_lm_prob, max_predictions_per_seq, vocab_words, rng))
+        values = range(len(all_documents))
+        with tqdm(total=len(values), file=sys.stdout) as pbar:
+            for document_index in values:
+                #pbar.write('docs processed: %d' % (1 + document_index))
+                instances.extend(
+                    create_instances_from_document(
+                        all_documents, document_index, max_seq_length, short_seq_prob,
+                        masked_lm_prob, max_predictions_per_seq, vocab_words, rng))
+                pbar.update(1)
 
     rng.shuffle(instances)
     return instances

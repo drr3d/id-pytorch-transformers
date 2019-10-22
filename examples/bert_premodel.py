@@ -124,8 +124,8 @@ def bertDataLoader(pickle_name):
     """ """
     print("Prepare BERT data prerpocessing...")
     max_seq_length = 128
-    dupe_factor = 10
-    short_seq_prob = 0.1
+    dupe_factor = 2
+    short_seq_prob = 0.1 
     masked_lm_prob = 0.15
     max_predictions_per_seq = 20
     random_seed = 1337
@@ -140,11 +140,12 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
     """ """
     print("Prepare BERT data prerpocessing...")
     max_seq_length = 128
-    dupe_factor = 10
-    short_seq_prob = 0.1
+    dupe_factor = 2 # Number of times to duplicate the input data (with different masks).
+    short_seq_prob = 0.1 # Probability of creating sequences which are shorter than the maximum length.
     masked_lm_prob = 0.15
-    max_predictions_per_seq = 20
+    max_predictions_per_seq = 20 # Maximum number of masked LM predictions per sequence
     random_seed = 1337
+    do_lower_case=do_lower_case # Whether to lower case the input text. Should be True for uncased models and False for cased models.
 
     print("Prepare BERT tokenizer...")
     tokenizer = bertFullTokenizer(piece_model=tokenizer_dir+spm_model_name,
@@ -157,7 +158,9 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
                                                 random.Random(random_seed))
 
     features = []
-    for (inst_index, instance) in enumerate(tqdm(instances)):
+    print("Preparing training instance DONE...")
+    print("Preparing append to TensorDataset...")
+    for (inst_index, instance) in enumerate(tqdm(instances, desc="TensorDataset append")):
         input_ids = [ids for token in instance.tokens for ids in tokenizer.convert_tokens_to_ids(token)]
         input_mask = [1] * len(input_ids)
         segment_ids = list(instance.segment_ids)

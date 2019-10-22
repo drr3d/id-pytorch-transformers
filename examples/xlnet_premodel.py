@@ -39,8 +39,16 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
                local_rank, train_batch_size, num_epoch, max_grad_norm, n_gpu,
                logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
-               train_model_name='gpt2'):
+               train_model_name='gpt2', fp16=True):
 
+    if fp16:
+        try:
+            from apex import amp
+        except ImportError:
+            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+        #  Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3'], defaul 01
+        print("Trained using apex fp16..")
+        model, optimizer = amp.initialize(model, optimizer, opt_level='O2')
 
     if n_gpu > 1:
         model = torch.nn.DataParallel(model)
@@ -77,11 +85,18 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
 
-                loss.backward()
+                if fp16:
+                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                        scaled_loss.backward()
+                else:
+                    loss.backward()
                 
                 tr_loss += loss.item()
                 if (step + 1) % gradient_accumulation_steps == 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+                    if fp16:
+                        torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), max_grad_norm)
+                    else:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
                     # Update parameters and take a step using the computed gradient
                     optimizer.step()
