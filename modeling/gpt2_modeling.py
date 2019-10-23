@@ -64,9 +64,9 @@ class GPT2Config(nn.Module):
         vocab_size_or_config_json_file=50257,
         n_positions=1024, #1024, 512 768
         n_ctx=1024, #1024, 512 768
-        n_embd=512, #768, 256, 512, 1024 --> make sure n_embd%n_head==0
+        n_embd=600, #768, 256, 512, 1024 --> make sure n_embd%n_head==0
         n_layer=12, # 6, 32
-        n_head=8, #12, 8, 16
+        n_head=10, #12, 8, 16
         resid_pdrop=0.1,
         embd_pdrop=0.1,
         attn_pdrop=0.1,

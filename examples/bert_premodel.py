@@ -67,28 +67,15 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         for step, batch in enumerate(epoch_iterator):
                 # The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated)
                 #   To train the model, you should first set it back in training mode with ``model.train()``
-                input_ids, input_mask, segment_ids, masked_lm_positions, masked_lm_ids, masked_lm_weights, next_sentence_labels = batch
-                #inputs = inputs.to(device)
-                #labels = labels.to(device)
+                input_ids, input_mask, segment_ids, masked_lm_positions, masked_lm_ids, masked_lm_weights, next_sentence_labels = batc
 
                 model.train()
-                outputs = model(input_ids.to(device))
-                
-    
 
-                if n_gpu > 1:
-                    loss = loss.mean()
+                # https://github.com/huggingface/transformers/issues/1054
+                outputs = model(input_ids.to(device), 
+                                attention_mask=input_mask.to(device),
+                                token_type_ids=segment_ids.to(device))
 
-                #if gradient_accumulation_steps > 1:
-                #    loss = loss / gradient_accumulation_steps
-
-                #if fp16:
-                #    with amp.scale_loss(loss, optimizer) as scaled_loss:
-                #        scaled_loss.backward()
-                #else:
-                #    loss.backward()
-                
-                #tr_loss += loss.item()
                 if (step + 1) % gradient_accumulation_steps == 0:
                     if fp16:
                         torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), max_grad_norm)
@@ -105,8 +92,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                     model.zero_grad()
     
         end = time.time()
-        op = "Epoch: {}, completed in: {}, perplexity: {}\n".format(cur_epoch, (end - start),
-                                                                              math.exp(loss))
+        op = "Epoch: {}, completed in: {}\n".format(cur_epoch, (end - start))
         print(op)
         with open("saved_trainingprogress.txt", 'a') as fw:
             fw.write(op)

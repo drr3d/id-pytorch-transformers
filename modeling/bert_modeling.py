@@ -17,6 +17,8 @@
 
 import sys
 import os
+import six
+
 import math
 import torch
 from torch import nn
@@ -43,6 +45,30 @@ def swish(x):
 
 
 ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "swish": swish, "gelu_new": gelu_new}
+
+if not six.PY2:
+    def add_start_docstrings(*docstr):
+        def docstring_decorator(fn):
+            fn.__doc__ = ''.join(docstr) + fn.__doc__
+            return fn
+        return docstring_decorator
+
+    def add_end_docstrings(*docstr):
+        def docstring_decorator(fn):
+            fn.__doc__ = fn.__doc__ + ''.join(docstr)
+            return fn
+        return docstring_decorator
+else:
+    # Not possible to update class docstrings on python2
+    def add_start_docstrings(*docstr):
+        def docstring_decorator(fn):
+            return fn
+        return docstring_decorator
+
+    def add_end_docstrings(*docstr):
+        def docstring_decorator(fn):
+            return fn
+        return docstring_decorator
 
 class BertConfig(nn.Module):
     r"""
@@ -72,9 +98,9 @@ class BertConfig(nn.Module):
 
     def __init__(self,
                  vocab_size_or_config_json_file=30522,
-                 hidden_size=768,
+                 hidden_size=600,
                  num_hidden_layers=12,
-                 num_attention_heads=12,
+                 num_attention_heads=10,
                  intermediate_size=3072,
                  hidden_act="gelu",
                  hidden_dropout_prob=0.1,
@@ -415,6 +441,71 @@ class BertPreTrainingHeads(nn.Module):
         seq_relationship_score = self.seq_relationship(pooled_output)
         return prediction_scores, seq_relationship_score
 
+BERT_START_DOCSTRING = r"""    The BERT model was proposed in
+    `BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding`_
+    by Jacob Devlin, Ming-Wei Chang, Kenton Lee and Kristina Toutanova. It's a bidirectional transformer
+    pre-trained using a combination of masked language modeling objective and next sentence prediction
+    on a large corpus comprising the Toronto Book Corpus and Wikipedia.
+
+    This model is a PyTorch `torch.nn.Module`_ sub-class. Use it as a regular PyTorch Module and
+    refer to the PyTorch documentation for all matter related to general usage and behavior.
+
+    .. _`BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding`:
+        https://arxiv.org/abs/1810.04805
+
+    .. _`torch.nn.Module`:
+        https://pytorch.org/docs/stable/nn.html#module
+
+    Parameters:
+        config (:class:`~transformers.BertConfig`): Model configuration class with all the parameters of the model. 
+            Initializing with a config file does not load the weights associated with the model, only the configuration.
+            Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model weights.
+"""
+
+BERT_INPUTS_DOCSTRING = r"""
+    Inputs:
+        **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
+            Indices of input sequence tokens in the vocabulary.
+            To match pre-training, BERT input sequence should be formatted with [CLS] and [SEP] tokens as follows:
+
+            (a) For sequence pairs:
+
+                ``tokens:         [CLS] is this jack ##son ##ville ? [SEP] no it is not . [SEP]``
+                
+                ``token_type_ids:   0   0  0    0    0     0       0   0   1  1  1  1   1   1``
+
+            (b) For single sequences:
+
+                ``tokens:         [CLS] the dog is hairy . [SEP]``
+                
+                ``token_type_ids:   0   0   0   0  0     0   0``
+
+            Bert is a model with absolute position embeddings so it's usually advised to pad the inputs on
+            the right rather than the left.
+
+            Indices can be obtained using :class:`transformers.BertTokenizer`.
+            See :func:`transformers.PreTrainedTokenizer.encode` and
+            :func:`transformers.PreTrainedTokenizer.convert_tokens_to_ids` for details.
+        **attention_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, sequence_length)``:
+            Mask to avoid performing attention on padding token indices.
+            Mask values selected in ``[0, 1]``:
+            ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
+        **token_type_ids**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
+            Segment token indices to indicate first and second portions of the inputs.
+            Indices are selected in ``[0, 1]``: ``0`` corresponds to a `sentence A` token, ``1``
+            corresponds to a `sentence B` token
+            (see `BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding`_ for more details).
+        **position_ids**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
+            Indices of positions of each input sequence tokens in the position embeddings.
+            Selected in the range ``[0, config.max_position_embeddings - 1]``.
+        **head_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(num_heads,)`` or ``(num_layers, num_heads)``:
+            Mask to nullify selected heads of the self-attention modules.
+            Mask values selected in ``[0, 1]``:
+            ``1`` indicates the head is **not masked**, ``0`` indicates the head is **masked**.
+"""
+
+@add_start_docstrings("The bare Bert Model transformer outputting raw hidden-states without any specific head on top.",
+                      BERT_START_DOCSTRING, BERT_INPUTS_DOCSTRING)
 class BertModel(nn.Module):
     r"""
     Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
@@ -523,6 +614,108 @@ class BertModel(nn.Module):
 
         outputs = (sequence_output, pooled_output,) + encoder_outputs[1:]  # add hidden_states and attentions if they are here
         return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
+
+@add_start_docstrings("""Bert Model with two heads on top as done during the pre-training:
+    a `masked language modeling` head and a `next sentence prediction (classification)` head. """,
+    BERT_START_DOCSTRING, BERT_INPUTS_DOCSTRING)
+class BertForPreTraining(nn.Module):
+    r"""
+        **masked_lm_labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
+            Labels for computing the masked language modeling loss.
+            Indices should be in ``[-1, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
+            Tokens with indices set to ``-1`` are ignored (masked), the loss is only computed for the tokens with labels
+            in ``[0, ..., config.vocab_size]``
+        **next_sentence_label**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size,)``:
+            Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair (see ``input_ids`` docstring)
+            Indices should be in ``[0, 1]``.
+            ``0`` indicates sequence B is a continuation of sequence A,
+            ``1`` indicates sequence B is a random sequence.
+
+    Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
+        **loss**: (`optional`, returned when both ``masked_lm_labels`` and ``next_sentence_label`` are provided) ``torch.FloatTensor`` of shape ``(1,)``:
+            Total loss as the sum of the masked language modeling loss and the next sequence prediction (classification) loss.
+        **prediction_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, config.vocab_size)``
+            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
+        **seq_relationship_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, 2)``
+            Prediction scores of the next sequence prediction (classification) head (scores of True/False continuation before SoftMax).
+        **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
+            list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
+            of shape ``(batch_size, sequence_length, hidden_size)``:
+            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
+        **attentions**: (`optional`, returned when ``config.output_attentions=True``)
+            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
+
+
+    """
+    def __init__(self, config):
+        super(BertForPreTraining, self).__init__(config)
+
+        self.bert = BertModel(config)
+        self.cls = BertPreTrainingHeads(config)
+
+        self.init_weights()
+        self.tie_weights()
+    
+    def init_weights(self):
+        """ Initialize and prunes weights if needed. """
+        # Initialize weights
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        """ Initialize the weights """
+        if isinstance(module, (nn.Linear, nn.Embedding)):
+            # Slightly different from the TF version which uses truncated_normal for initialization
+            # cf https://github.com/pytorch/pytorch/pull/5617
+            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+        elif isinstance(module, BertLayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+        if isinstance(module, nn.Linear) and module.bias is not None:
+            module.bias.data.zero_()
+
+    def tie_weights(self):
+        """ Make sure we are sharing the input and output embeddings.
+            Export to TorchScript can't handle parameter sharing so we are cloning them instead.
+        """
+        self._tie_or_clone_weights(self.cls.predictions.decoder,
+                                   self.bert.embeddings.word_embeddings)
+
+    def _tie_or_clone_weights(self, first_module, second_module):
+        """ Tie or clone module weights depending of weither we are using TorchScript or not
+        """
+        first_module.weight = second_module.weight
+
+        if hasattr(first_module, 'bias') and first_module.bias is not None:
+            first_module.bias.data = torch.nn.functional.pad(
+                first_module.bias.data,
+                (0, first_module.weight.shape[0] - first_module.bias.shape[0]),
+                'constant',
+                0
+            )
+
+    def forward(self, input_ids, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None,
+                masked_lm_labels=None, next_sentence_label=None):
+
+        outputs = self.bert(input_ids,
+                            attention_mask=attention_mask,
+                            token_type_ids=token_type_ids,
+                            position_ids=position_ids, 
+                            head_mask=head_mask)
+
+        sequence_output, pooled_output = outputs[:2]
+        prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
+
+        outputs = (prediction_scores, seq_relationship_score,) + outputs[2:]  # add hidden states and attention if they are here
+
+        if masked_lm_labels is not None and next_sentence_label is not None:
+            loss_fct = CrossEntropyLoss(ignore_index=-1)
+            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
+            next_sentence_loss = loss_fct(seq_relationship_score.view(-1, 2), next_sentence_label.view(-1))
+            total_loss = masked_lm_loss + next_sentence_loss
+            outputs = (total_loss,) + outputs
+
+        return outputs  # (loss), prediction_scores, seq_relationship_score, (hidden_states), (attentions)
 
 class BertForTokenClassification(nn.Module):
     r"""

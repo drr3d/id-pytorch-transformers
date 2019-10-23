@@ -1,0 +1,1 @@
+Epoch: 0, completed in: 1055.1358773708344, perplexity: 1.0
