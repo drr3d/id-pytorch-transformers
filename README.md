@@ -16,7 +16,7 @@ sejauh yang saya temui pada pytorch-transformers, mungkin bisa saja melakukan pr
 jadi saya ambil bagian-bagian yang saya rasa penting untuk melakukan proses training dari awal. Sedangkan repo asli Author dari setiap tipe transformers, mayoritas menggunakan Tensorflow, sedangkan
 apa yang saya bisa hanya PyTorch dan keras, karenanya saya pilih untuk menggunakan PyTorch.
 
-  saya tidak yakin sih sebetulnya network re-kontruksi yang saya lakukan ini benar, tapi setelah dari beberapa percobaan, sepertinya bisa berjalan dengan baik.
+> sebetulnya saya tidak terlalu yakin akan network re-kontruksi yang saya lakukan ini benar, tapi setelah dari beberapa percobaan, sepertinya bisa berjalan dengan baik.
 
 untuk beberapa istilah yang saya gunakan, agar memperjelas:
 1. **task** : task yang ada pada transformers diantaranya
@@ -61,75 +61,74 @@ PyTorch `>=1.2.0`
 [sentencepiece](https://github.com/google/sentencepiece)  
 
 
-
-#### Pre-trained model
+## Pre-trained model
 proses training dilakukan di [Google-Colab](https://colab.research.google.com) serta laptop pribadi dengan GPU seadanya ya gaes. Training masih berlangsung sampai sekarang, 
 karena itu hasil pretrained akan terus saya update.
 
 ```
-    ### GPT2 config use: ###
-    n_positions=1024,
-    n_ctx=1024,
-    n_embd=600,
-    n_layer=12,
-    n_head=10,
-    resid_pdrop=0.1,
-    embd_pdrop=0.1,
-    attn_pdrop=0.1,
-    layer_norm_epsilon=1e-9,
-    initializer_range=0.02,
+### GPT2 config use: ###
+n_positions=1024,
+n_ctx=1024,
+n_embd=600,
+n_layer=12,
+n_head=10,
+resid_pdrop=0.1,
+embd_pdrop=0.1,
+attn_pdrop=0.1,
+layer_norm_epsilon=1e-9,
+initializer_range=0.02,
 
-    num_labels=1,
-    summary_type='cls_index',
-    summary_use_proj=True,
-    summary_activation=None,
-    summary_proj_to_labels=True,
-    summary_first_dropout=0.1
+num_labels=1,
+summary_type='cls_index',
+summary_use_proj=True,
+summary_activation=None,
+summary_proj_to_labels=True,
+summary_first_dropout=0.1
 
-    ### XLNet config use: ###
-    d_model=600,
-    n_layer=12,
-    n_head=10,
-    d_inner=2048,
-    max_position_embeddings=300,
-    ff_activation="gelu",
-    untie_r=True,
-    attn_type="bi",
+### XLNet config use: ###
+d_model=600,
+n_layer=12,
+n_head=10,
+d_inner=2048,
+max_position_embeddings=300,
+ff_activation="gelu",
+untie_r=True,
+attn_type="bi",
 
-    initializer_range=0.02,
-    layer_norm_eps=1e-12,
+initializer_range=0.02,
+layer_norm_eps=1e-12,
 
-    dropout=0.1,
-    mem_len=None,
-    reuse_len=None,
-    bi_data=False,
-    clamp_len=-1,
-    same_length=False,
+dropout=0.1,
+mem_len=None,
+reuse_len=None,
+bi_data=False,
+clamp_len=-1,
+same_length=False,
 
-    finetuning_task=None,
-    num_labels=2,
-    summary_type='last',
-    summary_use_proj=True,
-    summary_activation='tanh',
-    summary_last_dropout=0.1,
-    start_n_top=5,
-    end_n_top=5
+finetuning_task=None,
+num_labels=2,
+summary_type='last',
+summary_use_proj=True,
+summary_activation='tanh',
+summary_last_dropout=0.1,
+start_n_top=5,
+end_n_top=5
 
-    ### BERT config use: ###
-    vocab_size_or_config_json_file=30522,
-    hidden_size=600,
-    num_hidden_layers=12,
-    num_attention_heads=10,
-    intermediate_size=2048,
-    hidden_act="gelu",
-    hidden_dropout_prob=0.1,
-    attention_probs_dropout_prob=0.1,
-    max_position_embeddings=512,
-    type_vocab_size=2,
-    initializer_range=0.02,
-    layer_norm_eps=1e-12
-
+### BERT config use: ###
+vocab_size_or_config_json_file=30522,
+hidden_size=600,
+num_hidden_layers=12,
+num_attention_heads=10,
+intermediate_size=2048,
+hidden_act="gelu",
+hidden_dropout_prob=0.1,
+attention_probs_dropout_prob=0.1,
+max_position_embeddings=512,
+type_vocab_size=2,
+initializer_range=0.02,
+layer_norm_eps=1e-12
 ```
+
 > Epoch saat ini: 2
 
 hasil silahkan download disini:
@@ -157,7 +156,7 @@ Networks yang tersedia diantaranya:
 modifikasi file dalam directory [pretraining](https://github.com/drr3d/id-pytorch-transformers/tree/master/examples), pilih file sesuai dengan tipe networks yang ingin
 digunakan.
 
-### Masalah yang ditemui:
+#### Masalah yang ditemui:
 * https://github.com/NVIDIA/apex/issues/318
 * https://discuss.pytorch.org/t/arguments-are-located-on-different-gpus/15372
 * https://github.com/NVIDIA/apex/issues/341

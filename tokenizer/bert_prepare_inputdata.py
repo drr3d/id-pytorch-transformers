@@ -17,14 +17,6 @@ import sys
 
 from torch.utils.data import TensorDataset
 
-#corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
-#corpus_name = 'combined_all.txt' # combined_all.txt' #
-#spm_retrained_corpus = 'combined_all.txt'
-
-#tokenizer_dir = '../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
-#spm_model_name = 'spm_combinedAll_wordBert_id.model'
-#spm_vocab_name = 'spm_combinedAll_wordBert_id.vocab'
-
 def getNumLines(file_path):
     fp = open(file_path, "r+")
     buf = mmap.mmap(fp.fileno(), 0)
@@ -473,7 +465,7 @@ class InputFeatures(object):
         self.valid_ids = valid_ids
         self.label_mask = label_mask
 
-# spm_model_type: 'unigram', 'bpe'
+## spm_model_type: 'unigram', 'bpe', 'word'
 create_spm_model = False
 if create_spm_model:
     import sentencepiece as spm
