@@ -117,7 +117,7 @@ hasil silahkan download disini:
 Networks yang tersedia diantaranya:
 1. **[XLNet](https://github.com/zihangdai/xlnet/)** (from Google/CMU)
 2. **[GPT-2](https://blog.openai.com/better-language-models/)** (from OpenAI)
-3. **[BERT](https://github.com/google-research/bert)** (from Google) -- **IN PROGRESS**
+3. **[BERT](https://github.com/google-research/bert)** (from Google)
 
 ## Penjelasan Directory
 1. [modeling](https://github.com/drr3d/id-pytorch-transformers/tree/master/modeling)
@@ -127,6 +127,11 @@ Networks yang tersedia diantaranya:
 
 ### Memulai training:
 j
+
+### Masalah yang ditemui:
+https://github.com/NVIDIA/apex/issues/318
+https://discuss.pytorch.org/t/arguments-are-located-on-different-gpus/15372
+
 
 ***
 # License

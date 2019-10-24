@@ -101,7 +101,7 @@ class BertConfig(nn.Module):
                  hidden_size=600,
                  num_hidden_layers=12,
                  num_attention_heads=10,
-                 intermediate_size=3072,
+                 intermediate_size=2048,
                  hidden_act="gelu",
                  hidden_dropout_prob=0.1,
                  attention_probs_dropout_prob=0.1,

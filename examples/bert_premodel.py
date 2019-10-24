@@ -67,7 +67,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         for step, batch in enumerate(epoch_iterator):
                 # The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated)
                 #   To train the model, you should first set it back in training mode with ``model.train()``
-                input_ids, input_mask, segment_ids, masked_lm_positions, masked_lm_ids, masked_lm_weights, next_sentence_labels = batc
+                input_ids, input_mask, segment_ids = batch
 
                 model.train()
 
@@ -102,20 +102,20 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         _path = os.path.join(save_dir, 'epoch_{}-{}_id.ckpt'.format(cur_epoch, train_model_name))
         torch.save(model.state_dict(), _path)
 
-def bertDataLoader(pickle_name):
+def bertDataLoader(corpus_dir, trained_tensor_name, tokenizer_dir, 
+                   spm_model_name, spm_vocab_name, 
+                   do_lower_case=True):
     """ """
-    print("Prepare BERT data prerpocessing...")
-    max_seq_length = 128
-    dupe_factor = 2
-    short_seq_prob = 0.1 
-    masked_lm_prob = 0.15
-    max_predictions_per_seq = 20
-    random_seed = 1337
-
     print("Prepare BERT tokenizer...")
     tokenizer = bertFullTokenizer(piece_model=tokenizer_dir+spm_model_name,
                                   piece_vocab=tokenizer_dir+spm_vocab_name,
                                   do_lower_case=do_lower_case)
+    
+    print("Loading previously trained BERT tensor...")
+    with open(corpus_dir+"/{}.pkl".format(trained_tensor_name), 'rb') as handle:
+        train_data = pickle.load(handle)
+    
+    return train_data, tokenizer
 
 def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, spm_vocab_name, 
                        do_lower_case=True, save_filename='bert_traintensor_wikiall', save_directory="./"):
@@ -200,7 +200,8 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
 def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_tokenizer=False, train_model_name='gpt2',
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
          resume_iters=0, spm_vocab_size=2000, spm_max_sentence_length=4098, spm_model_name='spm_id', block_size=512,
-         spm_model_type='unigram', train_batch_size=1, num_epoch=1000, fp16=False):
+         spm_model_type='unigram', train_batch_size=1, num_epoch=1000, fp16=False, 
+         trained_tensor_name='bert_traintensor_wikiall', tensor_from_pretrained=False):
     ###################################################################################
     # set torch device
     if torch.cuda.is_available():
@@ -227,12 +228,18 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
     train_batch_size = train_batch_size
     block_size = block_size
 
-    ## create cache of training dataset
-    train_dataset, tokenizer = bertDataProcessing(corpus_dir, corpus_name, model_dir, 
-                                                  "{}.model".format(spm_model_name), "{}.vocab".format(spm_model_name), 
-                                                  do_lower_case=True, save_filename='bert_traintensor_wikiall', 
-                                                  save_directory="./")
-
+    if not tensor_from_pretrained:
+        ## create cache of training dataset
+        train_dataset, tokenizer = bertDataProcessing(corpus_dir, corpus_name, model_dir, 
+                                                    "{}.model".format(spm_model_name), "{}.vocab".format(spm_model_name), 
+                                                    do_lower_case=True, save_filename='bert_traintensor_wikiall', 
+                                                    save_directory="./")
+    else:
+        train_dataset, tokenizer = bertDataLoader(corpus_dir, tokenizer_dir=model_dir,
+                                                    trained_tensor_name=trained_tensor_name,
+                                                    spm_model_name="{}.model".format(spm_model_name),
+                                                    spm_vocab_name="{}.vocab".format(spm_model_name)) 
+    
     if dotraining:
         dataset = train_dataset
         print("Loading train_dataset done...")
@@ -276,14 +283,28 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
                    logging_steps=logging_steps, save_dir=model_dir+trained_model_savedir, train_model_name=train_model_name)
 
 if __name__ == '__main__':
-    
+    """
     ## Training new data
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
     main(corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', 
-         corpus_name='wiki_00mod_berts.txt', train_model_name='bert_id_wikicombinedAll', # wiki_00mod_berts, wiki_combinedall_ID_bert
+         corpus_name='wiki_00mod_berts.txt', train_model_name='bert_id_wikicombinedAll',
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
-         vocab_name=None, fp16=False, spm_model_name='spm_combinedAll_wordBert_id', trained_model_savedir="bert/",
-         save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, train_spm=True,
-         spm_vocab_size=100000, block_size=768,  spm_model_type='word',
-         spm_max_sentence_length=80000, train_batch_size=1, num_epoch=100)
+         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_id', 
+         trained_tensor_name='bert_traintensor_wikiall', vocab_name=None, fp16=False,
+         spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=True,
+         save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
+         spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)
+
+    """ 
+    ## Training new data
+    ## Step-1
+    ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
+    main(corpus_dir='../../Works/Data/ID/wiki_datasets/', 
+         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_100k',
+         model_dir='../../Works/Data/ID/wiki_datasets/',
+         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_id', 
+         trained_tensor_name='bert_traintensor_wikiall', vocab_name=None, fp16=True,
+         spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=True,
+         save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
+         spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)
