@@ -55,9 +55,11 @@ untuk beberapa istilah yang saya gunakan, agar memperjelas:
 hasil kombinasinya silahkan download [disini](https://drive.google.com/open?id=19h8W3OZwpML-OIBCp2lodBtwKRe0n6YI).
 
 ## Requirements
-PyTorch `>=1.2.0`
-[pytorch-transformers](https://github.com/huggingface/transformers) `==1.2.0`
-[sentencepiece](https://github.com/google/sentencepiece)
+
+PyTorch `>=1.2.0`  
+[pytorch-transformers](https://github.com/huggingface/transformers) `==1.2.0`  
+[sentencepiece](https://github.com/google/sentencepiece)  
+
 
 
 #### Pre-trained model
