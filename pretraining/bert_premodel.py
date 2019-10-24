@@ -300,9 +300,9 @@ if __name__ == '__main__':
     ## Training new data
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
-    main(corpus_dir='../../Works/Data/ID/wiki_datasets/', 
+    main(corpus_dir='../../Data/ID/wiki_datasets/', 
          corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_100k',
-         model_dir='../../Works/Data/ID/wiki_datasets/',
+         model_dir='../../Data/ID/wiki_datasets/',
          trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_id', 
          trained_tensor_name='bert_traintensor_wikiall', vocab_name=None, fp16=True,
          spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=True,
