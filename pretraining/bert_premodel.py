@@ -150,7 +150,9 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
         input_mask = [1] * len(input_ids)
         segment_ids = list(instance.segment_ids)
 
-        assert len(input_ids) <= max_seq_length
+        if len(input_ids) <= max_seq_length:
+            print("detected len(input_ids) <= max_seq_length: {}".format(input_ids, len(input_ids)))
+            assert len(input_ids) <= max_seq_length
         
         while len(input_ids) < max_seq_length:
             input_ids.append(0)
@@ -203,7 +205,7 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
 def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_tokenizer=False, train_model_name='gpt2',
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
          resume_iters=0, spm_vocab_size=2000, spm_max_sentence_length=4098, spm_model_name='spm_id', block_size=512,
-         spm_model_type='unigram', train_batch_size=1, num_epoch=1000, fp16=False, 
+         spm_model_type='unigram', train_batch_size=1, num_epoch=1000, fp16=False, do_lower_case=True,
          trained_tensor_name='bert_traintensor_wikiall', tensor_from_pretrained=False):
     ###################################################################################
     # set torch device
@@ -305,10 +307,10 @@ if __name__ == '__main__':
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
     main(corpus_dir='../../Data/ID/wiki_datasets/', 
-         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_1000k',
+         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_lcase_uni500k',
          model_dir='../../Data/ID/wiki_datasets/', do_lower_case=True,
-         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_lcase_1000k_id', 
-         trained_tensor_name='bert_traintensor_wikiall_lcase_1000k', vocab_name=None, fp16=True,
-         spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=False,
+         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_lcase_uni50k_id', 
+         trained_tensor_name='bert_traintensor_wikiall_lcase_uni50k', vocab_name=None, fp16=True,
+         spm_vocab_size=100000,  spm_model_type='unigram', tensor_from_pretrained=False,
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
          spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)

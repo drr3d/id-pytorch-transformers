@@ -256,7 +256,14 @@ def recleanWiki(corpus_dir, corpus_name, output_filename, lcase=True):
                 else:
                     file_handler.write("{}\n".format(sent.strip()))
             file_handler.write("\n")
+
+def wikiToLower(corpus_dir, corpus_name, output_filename):
+    with open(output_filename, 'w',  encoding="utf-8") as fw:
+        with open(corpus_dir+corpus_name, encoding="utf-8") as f:
+            for line in tqdm(f, total=getNumLines(corpus_dir+corpus_name)):
+                fw.write("{}\n".format(line.strip().lower()))
 #recleanWiki('./', 'combined_all.txt', 'wiki_combinedall_lcase_ID_bert.txt')
+#wikiToLower('../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', 'combined_all.txt', 'wiki_combinedall_lcase_id.txt')
 
 
 class TrainingInstance(object):
@@ -689,7 +696,7 @@ create_spm_model = False
 if create_spm_model:
     import sentencepiece as spm
     corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
-    spm_retrained_corpus='wiki_combinedall_lcase_ID_bert.txt'
+    spm_retrained_corpus='wiki_combinedall_lcase_id.txt'
     spm.SentencePieceTrainer.Train('--input={} --model_prefix={} --vocab_size={} --model_type={} \
                                     --hard_vocab_limit=false --max_sentence_length={} \
-                                    --user_defined_symbols=[MASK], --control_symbols=[CLS],[SEP]'.format(corpus_dir+spm_retrained_corpus, 'spm_combinedAll_wordBert_lcase_1000k_id', 1000000, 'word', 80000))
+                                    --user_defined_symbols=[MASK], --control_symbols=[CLS],[SEP]'.format(corpus_dir+spm_retrained_corpus, 'spm_combinedAll_lcase_uni50k_id', 50000, 'unigram', 80000))
