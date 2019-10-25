@@ -122,10 +122,13 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
     """ """
     print("Prepare BERT data prerpocessing...")
     max_seq_length = 128
-    dupe_factor = 2 # Number of times to duplicate the input data (with different masks).
+    dupe_factor = 1 # Number of times to duplicate the input data (with different masks).
     short_seq_prob = 0.1 # Probability of creating sequences which are shorter than the maximum length.
-    masked_lm_prob = 0.15
-    max_predictions_per_seq = 20 # Maximum number of masked LM predictions per sequence
+    
+    # Maximum number of masked LM predictions per sequence <-> perhaps for pre-trained set this to 0, no token will be masked
+    max_predictions_per_seq = 0#20
+    masked_lm_prob = 0.
+
     random_seed = 1337
     do_lower_case=do_lower_case # Whether to lower case the input text. Should be True for uncased models and False for cased models.
 
@@ -181,14 +184,14 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
     all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
     all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-    all_masked_lm_positions = torch.tensor([f.masked_lm_positions for f in features], dtype=torch.long)
-    all_masked_lm_ids = torch.tensor([f.masked_lm_ids for f in features], dtype=torch.long)
-    all_masked_lm_weights = torch.tensor([f.masked_lm_weights for f in features], dtype=torch.float)
-    all_next_sentence_labels = torch.tensor([f.next_sentence_labels for f in features], dtype=torch.long)
+    #all_masked_lm_positions = torch.tensor([f.masked_lm_positions for f in features], dtype=torch.long)
+    #all_masked_lm_ids = torch.tensor([f.masked_lm_ids for f in features], dtype=torch.long)
+    #all_masked_lm_weights = torch.tensor([f.masked_lm_weights for f in features], dtype=torch.float)
+    #all_next_sentence_labels = torch.tensor([f.next_sentence_labels for f in features], dtype=torch.long)
 
-    train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, 
-                                all_masked_lm_positions, all_masked_lm_ids,
-                                all_masked_lm_weights, all_next_sentence_labels)
+    train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids)#, 
+                                #all_masked_lm_positions, all_masked_lm_ids,
+                                #all_masked_lm_weights, all_next_sentence_labels)
     
 
     print("saving data to: {}".format(save_directory))
@@ -238,7 +241,8 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
         train_dataset, tokenizer = bertDataLoader(corpus_dir, tokenizer_dir=model_dir,
                                                     trained_tensor_name=trained_tensor_name,
                                                     spm_model_name="{}.model".format(spm_model_name),
-                                                    spm_vocab_name="{}.vocab".format(spm_model_name)) 
+                                                    spm_vocab_name="{}.vocab".format(spm_model_name),
+                                                    do_lower_case=do_lower_case) 
     
     if dotraining:
         dataset = train_dataset
@@ -301,10 +305,10 @@ if __name__ == '__main__':
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
     main(corpus_dir='../../Data/ID/wiki_datasets/', 
-         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_100k',
-         model_dir='../../Data/ID/wiki_datasets/',
-         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_id', 
-         trained_tensor_name='bert_traintensor_wikiall', vocab_name=None, fp16=True,
-         spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=True,
+         corpus_name='wiki_combinedall_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_1000k',
+         model_dir='../../Data/ID/wiki_datasets/', do_lower_case=True,
+         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_lcase_1000k_id', 
+         trained_tensor_name='bert_traintensor_wikiall_lcase_1000k', vocab_name=None, fp16=True,
+         spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=False,
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
          spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)

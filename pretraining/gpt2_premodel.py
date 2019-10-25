@@ -124,6 +124,41 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
          train_spm=True, save_tokenized=False, dotraining=False, model_name=None, resume=False, vocab_name='vocab',
          resume_iters=0, spm_vocab_size=2000, spm_max_sentence_length=4098, spm_model_name='spm_id', block_size=512,
          spm_model_type='unigram', train_batch_size=1, num_epoch=1000, fp16=False):
+    parser = argparse.ArgumentParser()
+
+    ## Required parameters
+    parser.add_argument("--corpus_dir", default=None, type=str, required=True,
+                        help="The directory where the corpus located.")
+    parser.add_argument("--corpus_name", default=None, type=str, required=True,
+                        help="The input training data file (a text file).")
+    parser.add_argument("--model_dir", default=None, type=str, required=True,
+                        help="The output directory where the model predictions and checkpoints will be written.")
+    parser.add_argument("--trained_model_savedir", default=None, type=str, required=True,
+                        help="The output directory where the model predictions and checkpoints will be written.")
+
+    ## Other parameters
+    parser.add_argument("--create_tokenizer", default=None, type=str,
+                        help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
+
+    parser.add_argument("--train_model_name", default="bert", type=str,
+                        help="The model architecture to be fine-tuned.")
+    parser.add_argument("--train_spm", default="bert-base-cased", type=str,
+                        help="The model checkpoint for weights initialization.")
+
+    parser.add_argument("--save_tokenized", action='store_true',
+                        help="Train with masked-language modeling loss instead of language modeling.")
+                    
+    parser.add_argument("--dotraining", type=float, default=0.15,
+                        help="Ratio of tokens to mask for masked language modeling loss")
+
+    parser.add_argument("--model_name", default="", type=str,
+                        help="Optional pretrained config name or path if not the same as model_name_or_path")
+    parser.add_argument("--resume", default="", type=str,
+                        help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
+    parser.add_argument("--vocab_name", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    args = parser.parse_args()
+
     ###################################################################################
     # set torch device
     if torch.cuda.is_available():

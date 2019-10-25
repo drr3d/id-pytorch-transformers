@@ -109,6 +109,7 @@ class BertConfig(nn.Module):
                  type_vocab_size=2,
                  initializer_range=0.02,
                  layer_norm_eps=1e-12,
+                 num_labels=1,
                  **kwargs):
         super(BertConfig, self).__init__(**kwargs)
         if isinstance(vocab_size_or_config_json_file, str) or (sys.version_info[0] == 2
@@ -134,6 +135,8 @@ class BertConfig(nn.Module):
             ###
             self.output_attentions = False
             self.output_hidden_states = False
+
+            self.num_labels=num_labels
         else:
             raise ValueError("First argument must be either a vocabulary size (int)"
                              " or the path to a pretrained model config file (str)")
@@ -649,7 +652,9 @@ class BertForPreTraining(nn.Module):
 
     """
     def __init__(self, config):
-        super(BertForPreTraining, self).__init__(config)
+        super(BertForPreTraining, self).__init__()
+
+        self.config = config
 
         self.bert = BertModel(config)
         self.cls = BertPreTrainingHeads(config)
@@ -738,7 +743,9 @@ class BertForTokenClassification(nn.Module):
 
     """
     def __init__(self, config):
-        super(BertForTokenClassification, self).__init__(config)
+        super(BertForTokenClassification, self).__init__()
+        self.config = config
+        
         self.num_labels = config.num_labels
 
         self.bert = BertModel(config)

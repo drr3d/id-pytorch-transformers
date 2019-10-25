@@ -13,9 +13,218 @@ import six
 import sentencepiece as spm
 import collections
 import torch
+import os
 import sys
+import logging
 
 from torch.utils.data import TensorDataset
+
+
+logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
+                    datefmt = '%m/%d/%Y %H:%M:%S',
+                    level = logging.INFO)
+logger = logging.getLogger(__name__)
+
+"""
+    For NER
+
+    this is part of https://github.com/kamalkraj/BERT-NER
+"""
+class InputExample(object):
+    """A single training/test example for simple sequence classification."""
+
+    def __init__(self, guid, text_a, text_b=None, label=None):
+        """Constructs a InputExample.
+
+        Args:
+            guid: Unique id for the example.
+            text_a: string. The untokenized text of the first sequence. For single
+            sequence tasks, only this sequence must be specified.
+            text_b: (Optional) string. The untokenized text of the second sequence.
+            Only must be specified for sequence pair tasks.
+            label: (Optional) string. The label of the example. This should be
+            specified for train and dev examples, but not for test examples.
+        """
+        self.guid = guid
+        self.text_a = text_a
+        self.text_b = text_b
+        self.label = label
+
+def readfile(filename):
+    '''
+    read file
+    '''
+    f = open(filename, encoding='utf-8')
+    data = []
+    sentence = []
+    label= []
+    for line in f:
+        if len(line)==0 or line.startswith('-DOCSTART') or line[0]=="\n":
+            if len(sentence) > 0:
+                data.append((sentence,label))
+                sentence = []
+                label = []
+            continue
+        splits = line.split(' ')
+        sentence.append(splits[0])
+        label.append(splits[-1][:-1])
+
+    if len(sentence) >0:
+        data.append((sentence,label))
+        sentence = []
+        label = []
+    return data
+
+class DataProcessor(object):
+    """Base class for data converters for sequence classification data sets."""
+
+    def get_train_examples(self, data_dir):
+        """Gets a collection of `InputExample`s for the train set."""
+        raise NotImplementedError()
+
+    def get_dev_examples(self, data_dir):
+        """Gets a collection of `InputExample`s for the dev set."""
+        raise NotImplementedError()
+
+    def get_labels(self):
+        """Gets the list of labels for this data set."""
+        raise NotImplementedError()
+
+    @classmethod
+    def _read_tsv(cls, input_file, quotechar=None):
+        """Reads a tab separated value file."""
+        return readfile(input_file)
+
+
+class NerProcessor(DataProcessor):
+    """Processor for the CoNLL-2003 data set."""
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "iob_ner_train.txt")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "iob_ner_valid.txt")), "dev")
+
+    def get_test_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "iob_ner_test.txt")), "test")
+
+    def get_labels(self):
+        return ["O", "B-TIME", "I-TIME", "B-QTY", "I-QTY",  "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "[CLS]", "[SEP]"]
+
+    def _create_examples(self,lines,set_type):
+        examples = []
+        for i,(sentence,label) in enumerate(lines):
+            guid = "%s-%s" % (set_type, i)
+            text_a = ' '.join(sentence)
+            text_b = None
+            label = label
+            examples.append(InputExample(guid=guid,text_a=text_a,text_b=text_b,label=label))
+        return examples
+
+def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer):
+    """Loads a data file into a list of `InputBatch`s."""
+
+    label_map = {label : i for i, label in enumerate(label_list,1)}
+
+    features = []
+    for (ex_index,example) in enumerate(examples):
+        textlist = example.text_a.split(' ')
+        labellist = example.label
+        tokens = []
+        labels = []
+        valid = []
+        label_mask = []
+        for i, word in enumerate(textlist):
+            token = tokenizer.tokenize(word)
+            tokens.extend(token)
+            label_1 = labellist[i]
+            for m in range(len(token)):
+                if m == 0:
+                    labels.append(label_1)
+                    valid.append(1)
+                    label_mask.append(1)
+                else:
+                    valid.append(0)
+        if len(tokens) >= max_seq_length - 1:
+            tokens = tokens[0:(max_seq_length - 2)]
+            labels = labels[0:(max_seq_length - 2)]
+            valid = valid[0:(max_seq_length - 2)]
+            label_mask = label_mask[0:(max_seq_length - 2)]
+        ntokens = []
+        segment_ids = []
+        label_ids = []
+        ntokens.append("[CLS]")
+        segment_ids.append(0)
+        valid.insert(0,1)
+        label_mask.insert(0,1)
+        label_ids.append(label_map["[CLS]"])
+        for i, token in enumerate(tokens):
+            
+            ntokens.append(token)
+            segment_ids.append(0)
+            try:
+                if len(labels) > i:
+                    label_ids.append(label_map[labels[i]])
+            except Exception as e:
+                print(tokens)
+                print(token)
+                print(labels)
+                print(e)
+        ntokens.append("[SEP]")
+        segment_ids.append(0)
+        valid.append(1)
+        label_mask.append(1)
+        label_ids.append(label_map["[SEP]"])
+
+        input_ids = [tokenizer.convert_tokens_to_ids(nt)[0] for nt in ntokens]
+        input_mask = [1] * len(input_ids)
+        label_mask = [1] * len(label_ids)
+        while len(input_ids) < max_seq_length:
+            input_ids.append(0)
+            input_mask.append(0)
+            segment_ids.append(0)
+            label_ids.append(0)
+            valid.append(1)
+            label_mask.append(0)
+        while len(label_ids) < max_seq_length:
+            label_ids.append(0)
+            label_mask.append(0)
+        assert len(input_ids) == max_seq_length
+        assert len(input_mask) == max_seq_length
+        assert len(segment_ids) == max_seq_length
+        assert len(label_ids) == max_seq_length
+        assert len(valid) == max_seq_length
+        assert len(label_mask) == max_seq_length
+
+        if ex_index < 5:
+            logger.info("*** Example ***")
+            logger.info("guid: %s" % (example.guid))
+            logger.info("tokens: %s" % " ".join(
+                    [str(x) for x in tokens]))
+            logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
+            logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
+            logger.info(
+                    "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+            # logger.info("label: %s (id = %d)" % (example.label, label_ids))
+
+        features.append(
+                InputFeatures(input_ids=input_ids,
+                              input_mask=input_mask,
+                              segment_ids=segment_ids,
+                              label_id=label_ids,
+                              valid_ids=valid,
+                              label_mask=label_mask))
+    return features
+################################################################################################################
+#######################################         END  BERT-NER          #########################################
+################################################################################################################
+
 
 def getNumLines(file_path):
     fp = open(file_path, "r+")
@@ -25,7 +234,7 @@ def getNumLines(file_path):
         lines += 1
     return lines
 
-def recleanWiki(corpus_dir, corpus_name, output_filename):
+def recleanWiki(corpus_dir, corpus_name, output_filename, lcase=True):
     raw_data = []
     with open(corpus_dir+corpus_name, encoding="utf-8") as f:
         for line in tqdm(f, total=getNumLines(corpus_dir+corpus_name)):
@@ -42,9 +251,12 @@ def recleanWiki(corpus_dir, corpus_name, output_filename):
         print("Write output file...")
         for n in tqdm(raw_data, total=len(raw_data)):
             for sent in n:
-                file_handler.write("{}\n".format(sent.strip()))
+                if lcase:
+                    file_handler.write("{}\n".format(sent.strip().lower()))
+                else:
+                    file_handler.write("{}\n".format(sent.strip()))
             file_handler.write("\n")
-#recleanWiki('wiki_00mod_bert.txt')
+#recleanWiki('./', 'combined_all.txt', 'wiki_combinedall_lcase_ID_bert.txt')
 
 
 class TrainingInstance(object):
@@ -433,9 +645,13 @@ class FullTokenizer(object):
         self.vocab = load_vocab(piece_vocab)
         self.sentencepiece_tokenizer = SentencePieceTokenizer(model=piece_model)
 
+        self.do_lower_case = do_lower_case
+
     def tokenize(self, text):
         split_tokens = []
         text = ' '.join(whitespace_tokenize(text))
+        if self.do_lower_case:
+            text = text.lower()
         split_tokens = self.sentencepiece_tokenizer.tokenize(text)
 
         return split_tokens
@@ -449,9 +665,11 @@ class FullTokenizer(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, input_mask, segment_ids, masked_lm_positions, masked_lm_ids=None, 
+    def __init__(self, input_ids, input_mask, segment_ids, 
+                 masked_lm_positions=None, masked_lm_ids=None, 
                  masked_lm_weights=None, next_sentence_labels=None,
                  label_id=None, valid_ids=None, label_mask=None):
+
         self.input_ids = input_ids
         self.input_mask = input_mask
         self.segment_ids = segment_ids
@@ -465,10 +683,13 @@ class InputFeatures(object):
         self.valid_ids = valid_ids
         self.label_mask = label_mask
 
+
 ## spm_model_type: 'unigram', 'bpe', 'word'
 create_spm_model = False
 if create_spm_model:
     import sentencepiece as spm
+    corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/'
+    spm_retrained_corpus='wiki_combinedall_lcase_ID_bert.txt'
     spm.SentencePieceTrainer.Train('--input={} --model_prefix={} --vocab_size={} --model_type={} \
                                     --hard_vocab_limit=false --max_sentence_length={} \
-                                    --user_defined_symbols=[MASK], --control_symbols=[CLS],[SEP]'.format(corpus_dir+spm_retrained_corpus, 'spm_combinedAll_wordBert_id', 100000, 'word', 80000))
+                                    --user_defined_symbols=[MASK], --control_symbols=[CLS],[SEP]'.format(corpus_dir+spm_retrained_corpus, 'spm_combinedAll_wordBert_lcase_1000k_id', 1000000, 'word', 80000))

@@ -39,7 +39,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
                local_rank, train_batch_size, num_epoch, max_grad_norm, n_gpu,
                logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
-               train_model_name='gpt2', fp16=True):
+               train_model_name='gpt2', fp16=False):
 
     if fp16:
         try:
