@@ -24,7 +24,7 @@ logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(messa
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
 
-max_seq_length = 128
+max_seq_length = 256
 train_batch_size = 1
 num_train_epochs = 100
 gradient_accumulation_steps = 1

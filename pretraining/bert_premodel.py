@@ -118,16 +118,18 @@ def bertDataLoader(corpus_dir, trained_tensor_name, tokenizer_dir,
     return train_data, tokenizer
 
 def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, spm_vocab_name, 
-                       do_lower_case=True, save_filename='bert_traintensor_wikiall', save_directory="./"):
+                       do_lower_case=True, save_filename='bert_traintensor_wikiall', 
+                       save_directory="./", process_formasked=False):
     """ """
     print("Prepare BERT data prerpocessing...")
-    max_seq_length = 128
+    max_seq_length = 256
     dupe_factor = 1 # Number of times to duplicate the input data (with different masks).
     short_seq_prob = 0.1 # Probability of creating sequences which are shorter than the maximum length.
     
     # Maximum number of masked LM predictions per sequence <-> perhaps for pre-trained set this to 0, no token will be masked
-    max_predictions_per_seq = 0#20
-    masked_lm_prob = 0.
+    #  or just set process_formasked=False
+    max_predictions_per_seq = 20
+    masked_lm_prob = 0.15
 
     random_seed = 1337
     do_lower_case=do_lower_case # Whether to lower case the input text. Should be True for uncased models and False for cased models.
@@ -137,10 +139,10 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
                                   piece_vocab=tokenizer_dir+spm_vocab_name,
                                   do_lower_case=do_lower_case)
 
-    print("Prepare BERT training instance...")
+    print("Prepare BERT training instance: {}".format(corpus_dir+corpus_name))
     instances = bert_create_training_instances([corpus_dir+corpus_name], tokenizer, max_seq_length, dupe_factor,
                                                 short_seq_prob, masked_lm_prob, max_predictions_per_seq,
-                                                random.Random(random_seed))
+                                                random.Random(random_seed), process_formasked=process_formasked)
 
     features = []
     print("Preparing training instance DONE...")
@@ -150,48 +152,79 @@ def bertDataProcessing(corpus_dir, corpus_name, tokenizer_dir, spm_model_name, s
         input_mask = [1] * len(input_ids)
         segment_ids = list(instance.segment_ids)
 
-        if len(input_ids) <= max_seq_length:
-            print("detected len(input_ids) <= max_seq_length: {}".format(input_ids, len(input_ids)))
-            assert len(input_ids) <= max_seq_length
+        if len(input_ids) > max_seq_length:
+            moreov = len(input_ids)-max_seq_length
+            input_ids=input_ids[:-moreov]
+
+        assert len(input_ids) <= max_seq_length
         
         while len(input_ids) < max_seq_length:
             input_ids.append(0)
+
+        while len(input_mask) < max_seq_length:
             input_mask.append(0)
+        
+        while len(segment_ids) < max_seq_length:
             segment_ids.append(0)
 
         assert len(input_ids) == max_seq_length
-        assert len(input_mask) == max_seq_length
-        assert len(segment_ids) == max_seq_length
 
-        masked_lm_positions = list(instance.masked_lm_positions)
-        masked_lm_ids = [ids for token in instance.masked_lm_labels for ids in tokenizer.convert_tokens_to_ids(token)]
-        masked_lm_weights = [1.0] * len(masked_lm_ids)
+        try:
+            if len(input_mask) > max_seq_length:
+                moreov = len(input_mask)-max_seq_length
+                input_mask=input_mask[:-moreov]
 
-        while len(masked_lm_positions) < max_predictions_per_seq:
-            masked_lm_positions.append(0)
-            masked_lm_ids.append(0)
-            masked_lm_weights.append(0.0)
+            assert len(input_mask) == max_seq_length
+        except AssertionError as e:
+            print("assert len(input_mask) == max_seq_length {} - {}".format(input_mask, len(input_mask)))
+            print(e)
+        
+        try:
+            if len(segment_ids) > max_seq_length:
+                moreov = len(segment_ids)-max_seq_length
+                segment_ids=segment_ids[:-moreov]
 
-        next_sentence_label = 1 if instance.is_random_next else 0
+            assert len(segment_ids) == max_seq_length
+        except AssertionError as e:
+            print("len(segment_ids) == max_seq_length {} - {}".format(segment_ids, len(segment_ids)))
+            print(e)
 
-        features.append(
-                    bertInputFeatures(input_ids=input_ids,
-                                        input_mask=input_mask,
-                                        segment_ids=segment_ids,
-                                        masked_lm_positions=masked_lm_positions,
-                                        masked_lm_ids=masked_lm_ids,
-                                        masked_lm_weights=masked_lm_weights,
-                                        next_sentence_labels=[next_sentence_label]))
+        if process_formasked:
+            masked_lm_positions = list(instance.masked_lm_positions)
+            masked_lm_ids = [ids for token in instance.masked_lm_labels for ids in tokenizer.convert_tokens_to_ids(token)]
+            masked_lm_weights = [1.0] * len(masked_lm_ids)
 
+            while len(masked_lm_positions) < max_predictions_per_seq:
+                masked_lm_positions.append(0)
+                masked_lm_ids.append(0)
+                masked_lm_weights.append(0.0)
+
+            next_sentence_label = 1 if instance.is_random_next else 0
+
+            features.append(
+                        bertInputFeatures(input_ids=input_ids,
+                                            input_mask=input_mask,
+                                            segment_ids=segment_ids,
+                                            masked_lm_positions=masked_lm_positions,
+                                            masked_lm_ids=masked_lm_ids,
+                                            masked_lm_weights=masked_lm_weights,
+                                            next_sentence_labels=[next_sentence_label]))
+        else:
+            features.append(
+                        bertInputFeatures(input_ids=input_ids,
+                                            input_mask=input_mask,
+                                            segment_ids=segment_ids
+                        )
+            )
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+    #all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+    #all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
     #all_masked_lm_positions = torch.tensor([f.masked_lm_positions for f in features], dtype=torch.long)
     #all_masked_lm_ids = torch.tensor([f.masked_lm_ids for f in features], dtype=torch.long)
     #all_masked_lm_weights = torch.tensor([f.masked_lm_weights for f in features], dtype=torch.float)
     #all_next_sentence_labels = torch.tensor([f.next_sentence_labels for f in features], dtype=torch.long)
 
-    train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids)#, 
+    train_data = TensorDataset(all_input_ids)#, all_input_mask, all_segment_ids)#, 
                                 #all_masked_lm_positions, all_masked_lm_ids,
                                 #all_masked_lm_weights, all_next_sentence_labels)
     
@@ -289,18 +322,18 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
                    logging_steps=logging_steps, save_dir=model_dir+trained_model_savedir, train_model_name=train_model_name)
 
 if __name__ == '__main__':
-    """
+    
     ## Training new data
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
     main(corpus_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/id/', 
-         corpus_name='wiki_00mod_berts.txt', train_model_name='bert_id_wikicombinedAll',
+         corpus_name='wiki_combinedall_lcase_ID_bert.txt', train_model_name='bert_id_wikicombinedAll_basehead_lcase_uni500k',
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
-         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_wordBert_id', 
-         trained_tensor_name='bert_traintensor_wikiall', vocab_name=None, fp16=False,
-         spm_vocab_size=100000,  spm_model_type='word', tensor_from_pretrained=True,
+         trained_model_savedir="bert/", spm_model_name='spm_combinedAll_lcase_uni50k_id', 
+         trained_tensor_name='bert_traintensor_wikiall_lcase_uni50k', vocab_name=None, fp16=False,
+         spm_vocab_size=50000,  spm_model_type='unigram', tensor_from_pretrained=False,
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
-         spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)
+         spm_max_sentence_length=80000, train_batch_size=1, num_epoch=100)
 
     """ 
     ## Training new data
@@ -311,6 +344,7 @@ if __name__ == '__main__':
          model_dir='../../Data/ID/wiki_datasets/', do_lower_case=True,
          trained_model_savedir="bert/", spm_model_name='spm_combinedAll_lcase_uni50k_id', 
          trained_tensor_name='bert_traintensor_wikiall_lcase_uni50k', vocab_name=None, fp16=True,
-         spm_vocab_size=100000,  spm_model_type='unigram', tensor_from_pretrained=False,
+         spm_vocab_size=50000,  spm_model_type='unigram', tensor_from_pretrained=False,
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
          spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)
+    """

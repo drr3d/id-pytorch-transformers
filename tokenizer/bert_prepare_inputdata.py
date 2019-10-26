@@ -283,10 +283,12 @@ class TrainingInstance(object):
             [printable_text(x) for x in self.tokens]))
         s += "segment_ids: %s\n" % (" ".join([str(x) for x in self.segment_ids]))
         s += "is_random_next: %s\n" % self.is_random_next
-        s += "masked_lm_positions: %s\n" % (" ".join(
-            [str(x) for x in self.masked_lm_positions]))
-        s += "masked_lm_labels: %s\n" % (" ".join(
-            [printable_text(x) for x in self.masked_lm_labels]))
+        if self.masked_lm_positions is not None:
+            s += "masked_lm_positions: %s\n" % (" ".join(
+                [str(x) for x in self.masked_lm_positions]))
+        if masked_lm_labels is not None:
+            s += "masked_lm_labels: %s\n" % (" ".join(
+                [printable_text(x) for x in self.masked_lm_labels]))
         s += "\n"
         return s
 
@@ -295,7 +297,7 @@ class TrainingInstance(object):
 
 def create_training_instances(input_files, tokenizer, max_seq_length,
                               dupe_factor, short_seq_prob, masked_lm_prob,
-                              max_predictions_per_seq, rng):
+                              max_predictions_per_seq, rng, process_formasked=False):
     """Create `TrainingInstance`s from raw text."""
     all_documents = [[]]
 
@@ -336,7 +338,8 @@ def create_training_instances(input_files, tokenizer, max_seq_length,
                 instances.extend(
                     create_instances_from_document(
                         all_documents, document_index, max_seq_length, short_seq_prob,
-                        masked_lm_prob, max_predictions_per_seq, vocab_words, rng))
+                        masked_lm_prob, max_predictions_per_seq, vocab_words, 
+                        rng, process_formasked=process_formasked))
                 pbar.update(1)
 
     rng.shuffle(instances)
@@ -421,9 +424,9 @@ def create_masked_lm_predictions(tokens, masked_lm_prob,
 
     return (output_tokens, masked_lm_positions, masked_lm_labels)
 
-def create_instances_from_document(
-    all_documents, document_index, max_seq_length, short_seq_prob,
-    masked_lm_prob, max_predictions_per_seq, vocab_words, rng):
+def create_instances_from_document( all_documents, document_index, max_seq_length, short_seq_prob,
+                                    masked_lm_prob, max_predictions_per_seq, vocab_words, 
+                                    rng, process_formasked=False, randdoc_cnt=5):
     """Creates `TrainingInstance`s for a single document."""
     document = all_documents[document_index]
 
@@ -477,7 +480,7 @@ def create_instances_from_document(
                     # corpora. However, just to be careful, we try to make sure that
                     # the random document is not the same as the document
                     # we're processing.
-                    for _ in range(10):
+                    for _ in range(randdoc_cnt):
                         random_document_index = rng.randint(0, len(all_documents) - 1)
                         if random_document_index != document_index:
                             break
@@ -519,15 +522,23 @@ def create_instances_from_document(
                 tokens.append("[SEP]")
                 segment_ids.append(1)
 
-                (tokens, masked_lm_positions,
-                masked_lm_labels) = create_masked_lm_predictions(
-                    tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng)
-                instance = TrainingInstance(
-                    tokens=tokens,
-                    segment_ids=segment_ids,
-                    is_random_next=is_random_next,
-                    masked_lm_positions=masked_lm_positions,
-                    masked_lm_labels=masked_lm_labels)
+                if process_formasked:
+                    (tokens, masked_lm_positions,
+                    masked_lm_labels) = create_masked_lm_predictions(
+                        tokens, masked_lm_prob, max_predictions_per_seq, vocab_words, rng)
+                    instance = TrainingInstance(
+                        tokens=tokens,
+                        segment_ids=segment_ids,
+                        is_random_next=is_random_next,
+                        masked_lm_positions=masked_lm_positions,
+                        masked_lm_labels=masked_lm_labels)
+                else:
+                    instance = TrainingInstance(
+                        tokens=tokens,
+                        segment_ids=segment_ids,
+                        is_random_next=is_random_next,
+                        masked_lm_positions=None,
+                        masked_lm_labels=None)
                 instances.append(instance)
             current_chunk = []
             current_length = 0
