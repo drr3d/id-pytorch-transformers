@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     This example intended as instruction for training new gpt2 model from scratch,
     aimed mainly for Indonesian language.
@@ -156,6 +157,26 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
     parser.add_argument("--resume", default="", type=str,
                         help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
     parser.add_argument("--vocab_name", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+
+    parser.add_argument("--resume_iters", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--spm_vocab_size", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--spm_max_sentence_length", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--spm_model_name", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--block_size", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--spm_model_type", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+
+    parser.add_argument("--train_batch_size", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--num_epoch", default="", type=str,
+                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--fp16", default="", type=str,
                         help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
     args = parser.parse_args()
 

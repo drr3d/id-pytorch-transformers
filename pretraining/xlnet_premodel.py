@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     This example intended as instruction for training new XLNet model from scratch,
     aimed mainly for Indonesian language.

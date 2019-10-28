@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     based on original comment in file https://github.com/google-research/bert/blob/master/create_pretraining_data.py#L185
     , thats for BERT, we need to prepare our WIKI-id dataset into specific format where:

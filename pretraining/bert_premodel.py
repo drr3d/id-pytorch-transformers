@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     This example intended as instruction for training new BERT model from scratch,
     aimed mainly for Indonesian language.
@@ -67,14 +68,13 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
         for step, batch in enumerate(epoch_iterator):
                 # The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated)
                 #   To train the model, you should first set it back in training mode with ``model.train()``
-                input_ids, input_mask, segment_ids = batch
-
+                input_ids = torch.tensor(batch[0], dtype=torch.long)
+                if step==1:
+                    print(input_ids)
                 model.train()
 
                 # https://github.com/huggingface/transformers/issues/1054
-                outputs = model(input_ids.to(device), 
-                                attention_mask=input_mask.to(device),
-                                token_type_ids=segment_ids.to(device))
+                outputs = model(input_ids.to(device))
 
                 if (step + 1) % gradient_accumulation_steps == 0:
                     if fp16:
@@ -331,9 +331,9 @@ if __name__ == '__main__':
          model_dir='../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/',
          trained_model_savedir="bert/", spm_model_name='spm_combinedAll_lcase_uni50k_id', 
          trained_tensor_name='bert_traintensor_wikiall_lcase_uni50k', vocab_name=None, fp16=False,
-         spm_vocab_size=50000,  spm_model_type='unigram', tensor_from_pretrained=False,
+         spm_vocab_size=50000,  spm_model_type='unigram', tensor_from_pretrained=True,
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
-         spm_max_sentence_length=80000, train_batch_size=1, num_epoch=100)
+         spm_max_sentence_length=80000, train_batch_size=3, num_epoch=100)
 
     """ 
     ## Training new data
@@ -348,3 +348,12 @@ if __name__ == '__main__':
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
          spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)
     """
+
+
+
+    torchmodel_widgets.append([ Box([Label(value="Model name: {}".format(standardized_fn))]),
+                                        widgets.HBox((globals() ['btnSave_{}'.format(standardized_fn)], btnDelete, btnEvaluate)),
+                                        Box([Label(value='Predict for text:'), 
+                                             globals() ['predictText_{}'.format(standardized_fn)]]),
+                                        widgets.HBox((globals() ['btnPredict_{}'.format(standardized_fn)], btnDelete))
+                                    ])
