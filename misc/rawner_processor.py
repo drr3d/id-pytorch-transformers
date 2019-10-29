@@ -3,6 +3,33 @@ import sys
 
 from nltk.tokenize import RegexpTokenizer
 tokenizer = RegexpTokenizer('\w+|\$[\d\.]+|\S+')
+
+with open('id-conllu_1.txt', 'r', encoding='utf-8') as fp:
+    line = fp.readline()
+    cnt = 1
+    sentence=[]
+    tmp_sentence=[]
+    while line:
+        
+        token = line.split('\t')
+        #print(line.split('\t'))
+        if line!='\n':
+            tmp_sentence.append([token[1], 'O' if token[2]=='_' else token[2]])
+        else:
+            sentence.append(tmp_sentence)
+            tmp_sentence=[]
+        line = fp.readline()
+        cnt += 1
+       
+        #if len(sentence)==3:
+        #   break
+
+    #print(sentence)
+    with open('iob_ner_conll.txt', 'w', encoding='utf-8') as fo:
+        for sent in sentence:
+            for token, tag in sent:
+                fo.write("{} {}\n".format(token, tag))
+            fo.write("\n")    
 """
 # for raw_ner.txt
 with open('iob_ner.txt', 'w', encoding='utf-8') as fo:
@@ -58,6 +85,8 @@ with open('iob_ner.txt', 'w', encoding='utf-8') as fo:
            
            line = fp.readline()
            cnt += 1
+"""
+
 """
 with open('iob_ner_2.txt', 'w', encoding='utf-8') as fo:
     with open('raw_ner_2.txt', 'r', encoding='utf-8') as fp:
@@ -124,3 +153,4 @@ with open('iob_ner_2.txt', 'w', encoding='utf-8') as fo:
                        
            line = fp.readline()
            cnt += 1
+"""
