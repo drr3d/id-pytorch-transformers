@@ -348,12 +348,3 @@ if __name__ == '__main__':
          save_tokenized=False, create_tokenizer=False, dotraining=True,  resume=False, 
          spm_max_sentence_length=80000, train_batch_size=6, num_epoch=100)
     """
-
-
-
-    torchmodel_widgets.append([ Box([Label(value="Model name: {}".format(standardized_fn))]),
-                                        widgets.HBox((globals() ['btnSave_{}'.format(standardized_fn)], btnDelete, btnEvaluate)),
-                                        Box([Label(value='Predict for text:'), 
-                                             globals() ['predictText_{}'.format(standardized_fn)]]),
-                                        widgets.HBox((globals() ['btnPredict_{}'.format(standardized_fn)], btnDelete))
-                                    ])

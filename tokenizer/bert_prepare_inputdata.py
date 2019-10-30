@@ -20,7 +20,7 @@ import logging
 
 from torch.utils.data import TensorDataset
 
-
+SPIECE_UNDERLINE = u'▁'
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
                     level = logging.INFO)
@@ -692,7 +692,7 @@ class FullTokenizer(object):
         return self.sentencepiece_tokenizer.sp.EncodeAsIds(tokens)
 
     def convert_ids_to_tokens(self, ids):
-        return self.sentencepiece_tokenizer.sp.IdToPiece(ids)
+        return self.sentencepiece_tokenizer.sp.IdToPiece(ids).replace(SPIECE_UNDERLINE, '')
 
 class InputFeatures(object):
     """A single set of features of data."""
