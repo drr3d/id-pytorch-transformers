@@ -138,46 +138,45 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
                         help="The output directory where the model predictions and checkpoints will be written.")
 
     ## Other parameters
-    parser.add_argument("--create_tokenizer", default=None, type=str,
-                        help="An optional input evaluation data file to evaluate the perplexity on (a text file).")
-
-    parser.add_argument("--train_model_name", default="bert", type=str,
-                        help="The model architecture to be fine-tuned.")
-    parser.add_argument("--train_spm", default="bert-base-cased", type=str,
-                        help="The model checkpoint for weights initialization.")
-
+    parser.add_argument("--create_tokenizer", action='store_true',
+                        help="Whether to create tokenizer object or not, default is False, means you already have tokenizer trained model.")
     parser.add_argument("--save_tokenized", action='store_true',
-                        help="Train with masked-language modeling loss instead of language modeling.")
-                    
-    parser.add_argument("--dotraining", type=float, default=0.15,
-                        help="Ratio of tokens to mask for masked language modeling loss")
+                        help="if --create_tokenizer is True, whether you want to save the model or not, default is False")
+    parser.add_argument("--train_spm", action='store_true',
+                        help="Whether to create sentencepiece object or not, default is False, means you already have sentencepiece trained model.")
 
-    parser.add_argument("--model_name", default="", type=str,
-                        help="Optional pretrained config name or path if not the same as model_name_or_path")
-    parser.add_argument("--resume", default="", type=str,
-                        help="Optional pretrained tokenizer name or path if not the same as model_name_or_path")
-    parser.add_argument("--vocab_name", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--dotraining", action='store_true',
+                        help="Whether to execute the training gpt2 or not")
+    parser.add_argument("--resume", action='store_true',
+                        help="Whether to resume training from selected epoch or not.")
+    parser.add_argument("--resume_iters", default=0, type=int,
+                        help="Specify what is choosen starting epoch for --resume training.")
 
-    parser.add_argument("--resume_iters", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--spm_vocab_size", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--spm_max_sentence_length", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--spm_model_name", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--block_size", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--spm_model_type", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    parser.add_argument("--train_model_name", default="gpt2", type=str,
+                        help="Name of trained model when saving/dump.")
+    parser.add_argument("--model_name", default=None, type=str,
+                        help="Specify model name to use on --resume training")
+    parser.add_argument("--vocab_name", default="vocab", type=str,
+                        help="Specify vocab model name from process --create_tokenizer")
 
-    parser.add_argument("--train_batch_size", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--num_epoch", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
-    parser.add_argument("--fp16", default="", type=str,
-                        help="Optional directory to store the pre-trained models downloaded from s3 (instread of the default one)")
+    
+    parser.add_argument("--spm_vocab_size", default=2000, type=int,
+                        help="Specify sentencepiece vocab size")
+    parser.add_argument("--spm_max_sentence_length", default=4098, type=int,
+                        help="Specify sentencepiece max_sentence_length that use for training. Only used when firttime training the spm model")
+    parser.add_argument("--spm_model_name", default="spm_id", type=str,
+                        help="Specify spm model name for saving ")
+    parser.add_argument("--spm_model_type", default="unigram", type=str,
+                        help="specify method that u want to use as sub-word method in training spm object. Available is: unigram, word and byte-pair-encoding(bpe)")
+
+    parser.add_argument("--block_size", default=512, type=int,
+                        help="Specify block_size for GPT2 configuration networks")
+    parser.add_argument("--train_batch_size", default=2, type=int,
+                        help="batch size used during pre-training")
+    parser.add_argument("--num_epoch", default=1000, type=int,
+                        help="number opoch to iterate for training")
+    parser.add_argument("--fp16", action='store_true',
+                        help="Wheter to use apex for training or not!")
     args = parser.parse_args()
 
     ###################################################################################
@@ -277,7 +276,7 @@ def main(corpus_dir, corpus_name, model_dir, trained_model_savedir, create_token
                    logging_steps=logging_steps, save_dir=model_dir+trained_model_savedir, train_model_name=train_model_name)
 
 if __name__ == '__main__':
-    
+    """
     ## Training new data
     ## Step-1
     ##  set save_tokenized=True and create_tokenizer=True if you not yet do the training for tokenizers
@@ -289,7 +288,7 @@ if __name__ == '__main__':
          dotraining=True,  resume=False, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
          spm_model_type='unigram', train_batch_size=1, num_epoch=10000)
 
-    """
+    
     main(corpus_dir='../../Data/ID/wiki_datasets/', model_name='epoch_2-gpt2_id_wikicombinedAE_id',
          corpus_name='combined_AE.txt', train_model_name='gpt2_id_wikicombinedAE',
          model_dir='../../Data/ID/wiki_datasets/', resume_iters=3,
@@ -298,3 +297,4 @@ if __name__ == '__main__':
          dotraining=True,  resume=True, train_spm=True, save_tokenized=False, create_tokenizer=False, block_size=768,
          spm_model_type='unigram', train_batch_size=3, num_epoch=10000)
     """
+    main()

@@ -116,7 +116,7 @@ class NerProcessor(DataProcessor):
             self._read_tsv(os.path.join(data_dir, "iob_ner_test.txt")), "test")
 
     def get_labels(self):
-        return ["O", "B-TIME", "I-TIME", "B-QTY", "I-QTY",  "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "[CLS]", "[SEP]"]
+        return ["O", "B-TIME", "I-TIME", "B-QTY", "I-QTY",  "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC", "B-MISC", "I-MISC","[CLS]", "[SEP]"]
 
     def _create_examples(self,lines,set_type):
         examples = []
@@ -171,19 +171,32 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
             segment_ids.append(0)
             try:
                 if len(labels) > i:
+                    #print("label_map[labels[i]]: {}".format(label_map[labels[i]]))
                     label_ids.append(label_map[labels[i]])
             except Exception as e:
-                print(tokens)
-                print(token)
-                print(labels)
-                print(e)
+                if labels[i] == '':
+                    label_ids.append(0)
+                else:
+                    print(tokens)
+                    print(token)
+                    print(labels[i])
+                    print(label_map[labels[i]])
+                    print(e)
+                    sys.exit()
         ntokens.append("[SEP]")
         segment_ids.append(0)
         valid.append(1)
         label_mask.append(1)
         label_ids.append(label_map["[SEP]"])
 
-        input_ids = [tokenizer.convert_tokens_to_ids(nt)[0] for nt in ntokens]
+        input_ids = []
+        for nt in ntokens:
+            try:
+                input_ids.append(tokenizer.convert_tokens_to_ids(nt)[0])
+            except IndexError as e:
+                input_ids.append(0)
+                pass
+        #input_ids = [tokenizer.convert_tokens_to_ids(nt)[0] for nt in ntokens]
         input_mask = [1] * len(input_ids)
         label_mask = [1] * len(label_ids)
         while len(input_ids) < max_seq_length:

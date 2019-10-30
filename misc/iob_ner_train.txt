@@ -78924,7 +78924,7 @@ mereka O
 menerima O
 ? O
 
-Sergei _B-PER
+Sergei B-PER
 Anatolyevich I-PER
 Tovkach I-PER
 ( O
@@ -79549,7 +79549,7 @@ orang O
 . O
 Pada O
 tahun O
-1946 _B-TIME
+1946 B-TIME
 , O
 Pulau B-LOC
 Jawa I-LOC
@@ -159985,7 +159985,7 @@ mereka O
 menerima O
 ? O
 
-Sergei _B-PER
+Sergei B-PER
 Anatolyevich I-PER
 Tovkach I-PER
 ( O
@@ -160610,7 +160610,7 @@ orang O
 . O
 Pada O
 tahun O
-1946 _B-TIME
+1946 B-TIME
 , O
 Pulau B-LOC
 Jawa I-LOC
@@ -241046,7 +241046,7 @@ mereka O
 menerima O
 ? O
 
-Sergei _B-PER
+Sergei B-PER
 Anatolyevich I-PER
 Tovkach I-PER
 ( O
@@ -241671,7 +241671,7 @@ orang O
 . O
 Pada O
 tahun O
-1946 _B-TIME
+1946 B-TIME
 , O
 Pulau B-LOC
 Jawa I-LOC
@@ -322107,7 +322107,7 @@ mereka O
 menerima O
 ? O
 
-Sergei _B-PER
+Sergei B-PER
 Anatolyevich I-PER
 Tovkach I-PER
 ( O
@@ -322732,7 +322732,7 @@ orang O
 . O
 Pada O
 tahun O
-1946 _B-TIME
+1946 B-TIME
 , O
 Pulau B-LOC
 Jawa I-LOC
@@ -403168,7 +403168,7 @@ mereka O
 menerima O
 ? O
 
-Sergei _B-PER
+Sergei B-PER
 Anatolyevich I-PER
 Tovkach I-PER
 ( O
@@ -403793,7 +403793,7 @@ orang O
 . O
 Pada O
 tahun O
-1946 _B-TIME
+1946 B-TIME
 , O
 Pulau B-LOC
 Jawa I-LOC

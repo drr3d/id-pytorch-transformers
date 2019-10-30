@@ -31,17 +31,17 @@ num_train_epochs = 100
 gradient_accumulation_steps = 1
 max_grad_norm = 1.0
 fp16 = False
-spm_vocab_size=100000
+spm_vocab_size=50000
 warmup_steps = 30
 logging_steps = 50
 max_steps = 1000
 t_total = max_steps
 
 model_dir = '../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
-spm_model_name = 'spm_combinedAll_wordBert_id.model'
-spm_vocab_name = 'spm_combinedAll_wordBert_id.vocab'
+spm_model_name = 'spm_combinedAll_lcase_uni50k_id.model'
+spm_vocab_name = 'spm_combinedAll_lcase_uni50k_id.vocab'
 trained_model_savedir = 'bert/'
-model_name = 'epoch_2-bert_id_wikicombinedAll_basehead_100k_id'
+model_name = 'epoch_8-bert_id_wikicombinedAll_basehead_lcase_uni50k_id'
 do_lower_case=True
 
 ner_processor = NerProcessor()
@@ -55,8 +55,6 @@ tokenizer = FullTokenizer(piece_model=model_dir+spm_model_name,
 train_examples = ner_processor.get_train_examples('../misc/')
 train_features = convert_examples_to_features(train_examples, label_list, max_seq_length, tokenizer)
 
-#for f in train_features:
-#    print(f.input_ids)
 
 all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long)
 all_input_mask = torch.tensor([f.input_mask for f in train_features], dtype=torch.long)
@@ -194,7 +192,7 @@ n_gpu = torch.cuda.device_count()
 set_seed(seed=1332, n_gpu=n_gpu)
 
 print("num_labels: {}".format(num_labels))
-config = BertConfig(vocab_size_or_config_json_file=spm_vocab_size, num_labels=num_labels, hidden_size=768, num_attention_heads=12, intermediate_size=3072)
+config = BertConfig(vocab_size_or_config_json_file=spm_vocab_size, num_labels=num_labels, hidden_size=600, num_attention_heads=12, intermediate_size=2048)
 
 model = Ner(config)
 
@@ -231,7 +229,7 @@ for eph in trange(int(num_train_epochs), desc="Epoch"):
     nb_tr_examples, nb_tr_steps = 0, 0
 
     model.train()
-    for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
+    for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration-{}".format(eph))):
         batch = tuple(t.to(device) for t in batch)
         input_ids, input_mask, segment_ids, label_ids, valid_ids, l_mask = batch
         loss = model(input_ids, segment_ids, input_mask, label_ids,valid_ids,l_mask)
@@ -259,5 +257,9 @@ for eph in trange(int(num_train_epochs), desc="Epoch"):
             model.zero_grad()
             global_step += 1
 
-    if eph%1==0:
-        doEval('../misc/', max_seq_length, label_list, tokenizer, model, eval_batch_size=1)
+    if eph%10==0:
+        train_model_name = 'bert_id_wikicombinedAll_tokenclasshead_lcase_uni50k_id'
+        _path = os.path.join('/content/drive/My Drive/iPad/bert/', 'epoch_{}-{}_id.ckpt'.format(cur_epoch, train_model_name))
+        torch.save(model.state_dict(), _path)
+
+        doEval('../misc/', max_seq_length, label_list, tokenizer, model, eval_batch_size=6)
