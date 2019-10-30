@@ -129,12 +129,12 @@ initializer_range=0.02,
 layer_norm_eps=1e-12
 ```
 
-> Epoch saat ini: 2
+> Epoch saat ini: 7
 
 hasil silahkan download disini:
 * [XLNet(80jt parameter, 50k vocab, subword-unigram)]()
 * [GPT2(80jt parameter, 50k vocab, subword-unigram)]()
-* [BERT(107jt parameter, 100k vocab, subword-word)]()
+* [BERT(77jt parameter, 100k vocab, subword-word)]()
 
 ## Networks tersedia
 Networks yang tersedia diantaranya:
