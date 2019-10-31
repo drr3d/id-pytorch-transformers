@@ -787,6 +787,7 @@ class BertForTokenClassification(nn.Module):
 
         outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
         if labels is not None:
+            #print(labels)
             loss_fct = CrossEntropyLoss()
             # Only keep active parts of the loss
             if attention_mask is not None:

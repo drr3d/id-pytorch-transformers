@@ -103,7 +103,7 @@ class NerProcessor(DataProcessor):
     def get_train_examples(self, data_dir):
         """See base class."""
         return self._create_examples(
-            self._read_tsv(os.path.join(data_dir, "iob_ner_train.txt")), "train")
+            self._read_tsv(os.path.join(data_dir, "iob_ner_train_x.txt")), "train")
 
     def get_dev_examples(self, data_dir):
         """See base class."""
@@ -223,9 +223,9 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
                     [str(x) for x in tokens]))
             logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
             logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-            logger.info(
-                    "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-            # logger.info("label: %s (id = %d)" % (example.label, label_ids))
+            #logger.info(
+            #        "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+            logger.info("label_ids: %s" % " ".join([str(x) for x in label_ids]))
 
         features.append(
                 InputFeatures(input_ids=input_ids,

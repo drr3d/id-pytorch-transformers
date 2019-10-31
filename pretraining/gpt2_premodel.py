@@ -38,8 +38,8 @@ def set_seed(seed, n_gpu=1):
 
 def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss, 
                logging_loss, gradient_accumulation_steps, mlm_probability, device, 
-               local_rank, train_batch_size, num_epoch, max_grad_norm, n_gpu=1,
-               logging_steps, start_iters=0, mlm=False,  save_dir='./pretrained/',  
+               local_rank, train_batch_size, num_epoch, max_grad_norm, logging_steps,
+               n_gpu=1, start_iters=0, mlm=False,  save_dir='./pretrained/',  
                train_model_name='gpt2', fp16=False):
 
     if fp16:
