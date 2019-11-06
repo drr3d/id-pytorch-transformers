@@ -10,11 +10,50 @@
 
 # id-pytorch-transformers
 Repository ini berisi modifikasi **[pytorch-transformers](https://github.com/huggingface/transformers)** (mungkin bukan modifikasi kali, tapi mayoritas copy-paste aja sih)
-untuk beberapa tipe transformers network, dengan harapan mempermudah untuk mempelajari konstruksi tiap-tiap network nya dalam proses melakukan training dari awal(terutama untuk bahasa Indonesia).
+untuk beberapa tipe transformers network, untuk proses belajar saya probadi dengan harapan mempermudah untuk mempelajari konstruksi tiap-tiap network nya 
+dalam proses melakukan training dari awal(terutama untuk bahasa Indonesia).
 
-sejauh yang saya temui pada pytorch-transformers, mungkin bisa saja melakukan proeses training dari awal, tapi saya tidak tau caranya(sepertinya mayoritas untuk proses **fine-tune**), 
-jadi saya ambil bagian-bagian yang saya rasa penting untuk melakukan proses training dari awal. Sedangkan repo asli Author dari setiap tipe transformers, mayoritas menggunakan Tensorflow, sedangkan
-apa yang saya bisa hanya PyTorch dan keras, karenanya saya pilih untuk menggunakan PyTorch.
+kalan teman ingin menggunakan **[pytorch-transformers](https://github.com/huggingface/transformers)** secara langsung untuk melakukan proses pre-training, bisa dengan cara 
+yang kurang lebih seperti ini:
+```
+#### Example for BERT ####
+from transformers import BertModel, BertConfig, WarmupLinearSchedule, AdamW
+
+## process raw data
+...
+...
+
+## for default config
+config = BertConfig()
+
+## for costumized config, see the original source for another configuration if needed
+custom_config = BertConfig(hidden_size=768,
+                            num_hidden_layers=12,
+                            num_attention_heads=12,
+                            intermediate_size=3072,
+                            ...
+)
+
+## initiate model
+model = BertModel(config=config) # do not call from_pretrained() method, just direct initialization
+
+optimizer = AdamW(optimizer_grouped_parameters, lr=0.00025, eps=1e-8)
+scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=t_total)
+
+model.train()
+
+for cur_epoch in range(start_iters, num_epoch):
+  start = time.time()
+  epoch_iterator = tqdm(train_dataloader, desc="Iteration-{}".format(cur_epoch), disable=local_rank not in [-1, 0])
+
+  loss = 0.
+  for step, batch in enumerate(epoch_iterator):
+    # The model is set in evaluation mode by default using ``model.eval()`` (Dropout modules are deactivated)
+    #   To train the model, you should first set it back in training mode with ``model.train()``
+...
+...
+
+```
 
 > sebetulnya saya tidak terlalu yakin akan network re-kontruksi yang saya lakukan ini benar, tapi setelah dari beberapa percobaan, sepertinya bisa berjalan dengan baik.
 
@@ -129,12 +168,15 @@ initializer_range=0.02,
 layer_norm_eps=1e-12
 ```
 
-> Epoch saat ini: 7
+> Epoch saat ini:
+  * BERT: 15
+  * GPT-2: 11
+  * XL-Net: 2
 
 hasil silahkan download disini:
-* [XLNet(80jt parameter, 50k vocab, subword-unigram)]()
-* [GPT2(80jt parameter, 50k vocab, subword-unigram)]()
-* [BERT(77jt parameter, 100k vocab, subword-word)]()
+* [XLNet(80jt parameter, 50k vocab, subword:unigram)]()
+* [GPT2(80jt parameter, 50k vocab, subword:unigram)]()
+* [BERT(77jt parameter, 50k vocab, subword:unigram)]()
 
 ## Networks tersedia
 Networks yang tersedia diantaranya:

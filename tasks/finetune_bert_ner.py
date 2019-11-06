@@ -80,7 +80,8 @@ def doEval(data_dir, max_seq_length, label_list, tokenizer, model, eval_batch_si
         l_mask = l_mask.to(device)
         
         with torch.no_grad():
-            logits = model(input_ids, segment_ids, input_mask,valid_ids=valid_ids,attention_mask_label=l_mask)
+            #logits = model(input_ids, segment_ids, input_mask,valid_ids=valid_ids,attention_mask_label=l_mask)
+            logits = model(input_ids, token_type_ids=None, attention_mask=input_mask, labels=label_ids)[0]
         #print("logits: {}".format(logits))
         logits = torch.argmax(F.log_softmax(logits,dim=2),dim=2)
         logits = logits.detach().cpu().numpy()
@@ -120,17 +121,17 @@ n_gpu = torch.cuda.device_count()
 
 set_seed(seed=1332, n_gpu=n_gpu)
 
-
-finetune = False
+finetune = True
 if finetune:
     model_dir = '../../temporary_before_move_to_git/id-pytorch-transformers/samples/wiki_datasets/trained_model/'
     spm_model_name = 'spm_combinedAll_lcase_uni50k_id.model'
     spm_vocab_name = 'spm_combinedAll_lcase_uni50k_id.vocab'
     trained_model_savedir = 'bert/'
-    model_name = 'epoch_15-bert_id_wikicombinedAll_tokenclasshead_lcase_uni50k_id_id'#'epoch_8-bert_id_wikicombinedAll_basehead_lcase_uni50k_id'
+    model_name = 'epoch_54-bert_id_wikicombinedAll_basehead_lcase_uni50k_id'# epoch_54-bert_id_wikicombinedAll_tokenclasshead_lcase_uni50k_id_id
     do_lower_case=True
-    eval_only = True
-    is_finetune = False # set True for the first time finetume is executed, for new set False for resume training
+    eval_only = False # set True to bypass training, or for doing evaluation only
+    start_iters = 0
+    is_finetune = True # set True for the first time finetume is executed, for new set False for resume training
 
     ner_processor = NerProcessor()
     label_list = ner_processor.get_labels()
@@ -184,6 +185,7 @@ if finetune:
             except ZeroDivisionError as ze: 
                 return 0.
 
+    """
     class Ner(BertForTokenClassification):
         def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None,valid_ids=None,attention_mask_label=None):
             sequence_output = self.bert(input_ids, token_type_ids, attention_mask,head_mask=None)[0]
@@ -212,14 +214,14 @@ if finetune:
                 return loss
             else:
                 return logits
+    """
 
     print("num_labels: {}".format(num_labels))
     config = BertConfig(vocab_size_or_config_json_file=spm_vocab_size, num_labels=num_labels, hidden_size=600, num_attention_heads=12, intermediate_size=2048)
 
-
     #model = Ner(config)
     model = BertForTokenClassification(config)
-    model = restoreModel(model, resume_iters=0, 
+    model = restoreModel(model, resume_iters=start_iters, 
                             model_name=model_name, 
                             model_save_dir=model_dir+trained_model_savedir, 
                             base_model_prefix='bert',
@@ -250,26 +252,26 @@ if finetune:
     if eval_only:
         doEval('../misc/', max_seq_length, label_list, tokenizer, model, eval_batch_size=2)
     else:
-        for eph in range(int(num_train_epochs)):
+        for eph in range(start_iters, int(num_train_epochs)):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
 
-            
-            for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration-{}".format(eph))):
+            model.train()
+
+            epoch_iterator = tqdm(train_dataloader, desc="Iteration-{} | loss: {}".format(eph, 0.))
+            for step, batch in enumerate(epoch_iterator):
                 batch = tuple(t.to(device) for t in batch)
                 input_ids, input_mask, segment_ids, label_ids, valid_ids, l_mask = batch
                 
-                model.train()
-                
-                #loss = model(input_ids, segment_ids, input_mask, label_ids,valid_ids,l_mask)
-                loss = model(input_ids, token_type_ids=None, attention_mask=input_mask, labels=label_ids)
-                #print(loss)
+
+                loss = model(input_ids, token_type_ids=None, attention_mask=input_mask, labels=label_ids)[0]
+  
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
 
                 if gradient_accumulation_steps > 1:
                     loss = loss / gradient_accumulation_steps
-                #print(loss)
+ 
                 if fp16:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
@@ -283,137 +285,19 @@ if finetune:
                 nb_tr_steps += 1
                 
                 loss_avg.update(loss.item())
-                
-                #print(input_ids[0].tolist())
-                #print([tokenizer.convert_ids_to_tokens(n) for n in input_ids[0].tolist()])
-                #print(label_ids)
-                print(loss_avg())
-                #if step==3:
-                #    sys.exit()
-                
+                epoch_iterator.set_description("Iteration-{} | loss: {}".format(eph, loss_avg()))
+
                 if (step + 1) % gradient_accumulation_steps == 0:
                     optimizer.step()
                     scheduler.step()  # Update learning rate schedule
                     model.zero_grad()
                     global_step += 1
 
-            if eph%0==0:
-                train_model_name = 'bert_id_wikicombinedAll_tokenclasshead_lcase_uni50k_id'
-                _path = os.path.join('/content/drive/My Drive/iPad/bert/', 'epoch_{}-{}_id.ckpt'.format(cur_epoch, train_model_name))
-                torch.save(model.state_dict(), _path)
+        if eph%1==0:
+            train_model_name = 'bert_id_wikicombinedAll_tokenclasshead_lcase_uni50k_id'
+            _path = os.path.join('/content/drive/My Drive/iPad/bert/', 'epoch_{}-{}_id.ckpt'.format(eph, train_model_name))
+            torch.save(model.state_dict(), _path)
 
-                doEval('../misc/', max_seq_length, label_list, tokenizer, model, eval_batch_size=6)
+            doEval('../misc/', max_seq_length, label_list, tokenizer, model, eval_batch_size=3)
 else:
-    class BertNer(BertForTokenClassification):
-
-        def forward(self, input_ids, token_type_ids=None, attention_mask=None, valid_ids=None):
-            sequence_output = self.bert(input_ids, token_type_ids, attention_mask, head_mask=None)[0]
-            batch_size,max_len,feat_dim = sequence_output.shape
-            valid_output = torch.zeros(batch_size,max_len,feat_dim,dtype=torch.float32,device='cuda' if torch.cuda.is_available() else 'cpu')
-            for i in range(batch_size):
-                jj = -1
-                for j in range(max_len):
-                        if valid_ids[i][j].item() == 1:
-                            jj += 1
-                            valid_output[i][jj] = sequence_output[i][j]
-            sequence_output = self.dropout(valid_output)
-            logits = self.classifier(sequence_output)
-            return logits
-
-    class Ner:
-
-        def __init__(self, model_dir: str, model_name=None, outmedia=None):
-            self.model , self.tokenizer, self.model_config = self.load_model(model_dir, model_name=model_name, outmedia=outmedia)
-            self.label_map = self.model_config["label_map"]
-            self.max_seq_length = self.model_config["max_seq_length"]
-            self.label_map = {int(k):v for k,v in self.label_map.items()}
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            self.model = self.model.to(self.device)
-            self.model.eval()
-
-        def load_model(self, model_dir: str, model_config: str = "model_config.json", model_name=None, outmedia=None):
-            model_config = os.path.join(model_dir,model_config)
-            model_config = json.load(open(model_config))
-            model = BertNer.from_pretrained(model_dir)
-            tokenizer = BertTokenizer.from_pretrained(model_dir, do_lower_case=model_config["do_lower"])
-            
-            if model_name is not None:
-                if outmedia is not None:
-                    with outmedia:
-                        print("Loading predict model from: {}".format(model_dir+"/"+model_name))
-                        state_dict = torch.load(model_dir+"/"+model_name, map_location=lambda storage, loc: storage)
-                        model.load_state_dict(state_dict)
-                        
-            return model, tokenizer, model_config
-
-        def tokenize(self, text: str):
-            """ tokenize input"""
-            words = word_tokenize(text)
-            tokens = []
-            valid_positions = []
-            for i,word in enumerate(words):
-                token = self.tokenizer.tokenize(word)
-                tokens.extend(token)
-                for i in range(len(token)):
-                    if i == 0:
-                        valid_positions.append(1)
-                    else:
-                        valid_positions.append(0)
-            return tokens, valid_positions
-
-        def preprocess(self, text: str):
-            """ preprocess """
-            tokens, valid_positions = self.tokenize(text)
-            ## insert "[CLS]"
-            tokens.insert(0,"[CLS]")
-            valid_positions.insert(0,1)
-            ## insert "[SEP]"
-            tokens.append("[SEP]")
-            valid_positions.append(1)
-            segment_ids = []
-            for i in range(len(tokens)):
-                segment_ids.append(0)
-            input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
-            print(tokens)
-            print(input_ids)
-            input_mask = [1] * len(input_ids)
-            while len(input_ids) < self.max_seq_length:
-                input_ids.append(0)
-                input_mask.append(0)
-                segment_ids.append(0)
-                valid_positions.append(0)
-            return input_ids,input_mask,segment_ids,valid_positions
-
-        def predict(self, text: str):
-            input_ids,input_mask,segment_ids,valid_ids = self.preprocess(text)
-            input_ids = torch.tensor([input_ids],dtype=torch.long,device=self.device)
-            input_mask = torch.tensor([input_mask],dtype=torch.long,device=self.device)
-            segment_ids = torch.tensor([segment_ids],dtype=torch.long,device=self.device)
-            valid_ids = torch.tensor([valid_ids],dtype=torch.long,device=self.device)
-            with torch.no_grad():
-                logits = self.model(input_ids, segment_ids, input_mask,valid_ids)
-            logits = F.softmax(logits,dim=2)
-            logits_label = torch.argmax(logits,dim=2)
-            logits_label = logits_label.detach().cpu().numpy().tolist()[0]
-
-            logits_confidence = [values[label].item() for values,label in zip(logits[0],logits_label)]
-
-            logits = []
-            pos = 0
-            for index,mask in enumerate(valid_ids[0]):
-                if index == 0:
-                    continue
-                if mask == 1:
-                    logits.append((logits_label[index-pos],logits_confidence[index-pos]))
-                else:
-                    pos += 1
-            logits.pop()
-
-            labels = [(self.label_map[label],confidence) for label,confidence in logits]
-            words = word_tokenize(text)
-            assert len(labels) == len(words)
-            output = [{"word":word,"tag":label,"confidence":confidence} for word,(label,confidence) in zip(words,labels)]
-            return output
-
-    model = Ner(self.torchmodel_dir.path, model_name=standardized_fn, outmedia=out)
-    output = model.predict(globals() ['predictText_{}'.format(standardized_fn)].value)
+    pass
