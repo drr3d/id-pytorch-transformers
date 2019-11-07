@@ -59,6 +59,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
     
     lm_loss = nn.Linear(config.d_model, config.n_token, bias=True).to(device)
 
+    model.train()
     for cur_epoch in range(start_iters, num_epoch):
         start = time.time()
         epoch_iterator = tqdm(train_dataloader, desc="Iteration-{}".format(cur_epoch), disable=local_rank not in [-1, 0])
@@ -70,8 +71,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 inputs, labels = (batch.type(torch.LongTensor), batch.type(torch.LongTensor))
                 inputs = inputs.to(device)
                 labels = labels.to(device)
-
-                model.train()
+                
                 outputs = model(inputs)
                 
                 logits = lm_loss(outputs[0])

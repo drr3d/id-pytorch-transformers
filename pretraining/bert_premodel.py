@@ -59,7 +59,7 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
     train_sampler = RandomSampler(dataset)
     train_dataloader = DataLoader(dataset, sampler=train_sampler, batch_size=train_batch_size)
     
-
+    model.train()
     for cur_epoch in range(start_iters, num_epoch):
         start = time.time()
         epoch_iterator = tqdm(train_dataloader, desc="Iteration-{}".format(cur_epoch), disable=local_rank not in [-1, 0])
@@ -71,7 +71,6 @@ def doTraining(model, config, dataset, tokenizer, optimizer, scheduler, tr_loss,
                 input_ids = torch.tensor(batch[0], dtype=torch.long)
                 if step==1:
                     print(input_ids)
-                model.train()
 
                 # https://github.com/huggingface/transformers/issues/1054
                 outputs = model(input_ids.to(device))
